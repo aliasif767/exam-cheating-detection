@@ -1,5 +1,28 @@
-flask
-numpy
-opencv-python
-mediapipe
-ultralytics
+# Web Framework
+Flask==2.3.3
+flask-cors==4.0.0
+Werkzeug==2.3.7
+
+# Database
+pymongo==4.5.0
+
+# Computer Vision & AI Models
+opencv-python==4.8.1.78
+ultralytics==8.0.196
+mediapipe==0.10.5
+
+# Face Recognition
+deepface==0.0.79
+tf-keras==2.15.0
+tensorflow==2.15.0
+
+# Image Processing
+Pillow==10.0.1
+numpy==1.24.3
+
+# Utilities
+python-dateutil==2.8.2
+
+# Optional but recommended for production
+gunicorn==21.2.0
+python-dotenv==1.0.0
