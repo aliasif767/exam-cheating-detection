@@ -1,0 +1,72 @@
+{
+  "total_frames": 810,
+  "duration_seconds": 16.2,
+  "total_students": 3,
+  "present_count": 3,
+  "absent_count": 3,
+  "present_students": [
+    "Student/E",
+    "Student/F",
+    "Student/H"
+  ],
+  "absent_students": [
+    "Student-E",
+    "Student-F",
+    "Student-H"
+  ],
+  "recognition_history": [
+    {
+      "name": "Student/E",
+      "confidence": 0.612042,
+      "frame": 10,
+      "time": "12:29:14"
+    },
+    {
+      "name": "Student/F",
+      "confidence": 0.407968,
+      "frame": 160,
+      "time": "12:29:55"
+    },
+    {
+      "name": "Student/H",
+      "confidence": 0.45983799999999997,
+      "frame": 540,
+      "time": "12:31:53"
+    }
+  ],
+  "attendance_details": {
+    "Student/E": {
+      "time": "2025-10-26 12:29:14",
+      "status": "Present",
+      "confidence": "0.61"
+    },
+    "Student/F": {
+      "time": "2025-10-26 12:29:55",
+      "status": "Present",
+      "confidence": "0.41"
+    },
+    "Student/H": {
+      "time": "2025-10-26 12:31:53",
+      "status": "Present",
+      "confidence": "0.46"
+    },
+    "Student-F": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Student-H": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Student-E": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "Mid",
+  "course_name": "OOP",
+  "db_report_id": "68fdcef45d4c0152648400bf"
+}

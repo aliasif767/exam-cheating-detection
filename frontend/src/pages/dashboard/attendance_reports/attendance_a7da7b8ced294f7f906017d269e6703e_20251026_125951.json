@@ -1,0 +1,46 @@
+{
+  "total_frames": 970,
+  "duration_seconds": 16.165,
+  "total_students": 5,
+  "present_count": 0,
+  "absent_count": 5,
+  "present_students": [],
+  "absent_students": [
+    "Ali",
+    "Aqiq",
+    "Asad",
+    "Asif",
+    "Ilyas"
+  ],
+  "recognition_history": [],
+  "attendance_details": {
+    "Asad": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Ali": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Ilyas": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Aqiq": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "final",
+  "course_name": "os",
+  "db_report_id": "68fdd4f7e71069b2a321acb1"
+}

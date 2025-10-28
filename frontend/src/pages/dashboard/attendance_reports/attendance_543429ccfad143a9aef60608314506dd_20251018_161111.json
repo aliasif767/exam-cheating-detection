@@ -1,0 +1,45 @@
+{
+  "total_frames": 370,
+  "duration_seconds": 14.8,
+  "total_students": 4,
+  "present_count": 1,
+  "absent_count": 3,
+  "present_students": [
+    "uzma"
+  ],
+  "absent_students": [
+    "ali",
+    "ilyas",
+    "khan"
+  ],
+  "recognition_history": [
+    {
+      "name": "uzma",
+      "confidence": 0.7637725,
+      "frame": 30,
+      "time": "16:10:20"
+    }
+  ],
+  "attendance_details": {
+    "uzma": {
+      "time": "2025-10-18 16:10:20",
+      "status": "Present",
+      "confidence": "0.76"
+    },
+    "ilyas": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "ali": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "khan": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  }
+}

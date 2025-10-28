@@ -1,0 +1,39 @@
+{
+  "total_frames": 139,
+  "duration_seconds": 4.633333333333334,
+  "total_students": 3,
+  "present_count": 1,
+  "absent_count": 2,
+  "present_students": [
+    "mustafa"
+  ],
+  "absent_students": [
+    "Qaim",
+    "shayan"
+  ],
+  "recognition_history": [
+    {
+      "name": "mustafa",
+      "confidence": 0.604465,
+      "frame": 105,
+      "time": "17:01:38"
+    }
+  ],
+  "attendance_details": {
+    "mustafa": {
+      "time": "2025-10-21 17:01:38",
+      "status": "Present",
+      "confidence": "0.60"
+    },
+    "shayan": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Qaim": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  }
+}

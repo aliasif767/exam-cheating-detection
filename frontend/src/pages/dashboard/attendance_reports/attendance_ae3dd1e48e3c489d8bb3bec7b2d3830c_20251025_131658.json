@@ -1,0 +1,84 @@
+{
+  "total_frames": 810,
+  "duration_seconds": 16.2,
+  "total_students": 6,
+  "present_count": 4,
+  "absent_count": 3,
+  "present_students": [
+    "Ali",
+    "Asad",
+    "Asif",
+    "Student/E"
+  ],
+  "absent_students": [
+    "Student-E",
+    "Student-F",
+    "Student-H"
+  ],
+  "recognition_history": [
+    {
+      "name": "Student/E",
+      "confidence": 0.562748,
+      "frame": 15,
+      "time": "13:16:09"
+    },
+    {
+      "name": "Asif",
+      "confidence": 0.736686,
+      "frame": 165,
+      "time": "13:16:19"
+    },
+    {
+      "name": "Ali",
+      "confidence": 0.480364,
+      "frame": 465,
+      "time": "13:16:36"
+    },
+    {
+      "name": "Asad",
+      "confidence": 0.40088,
+      "frame": 720,
+      "time": "13:16:52"
+    }
+  ],
+  "attendance_details": {
+    "Student/E": {
+      "time": "2025-10-25 13:16:09",
+      "status": "Present",
+      "confidence": "0.56"
+    },
+    "Asif": {
+      "time": "2025-10-25 13:16:19",
+      "status": "Present",
+      "confidence": "0.74"
+    },
+    "Ali": {
+      "time": "2025-10-25 13:16:36",
+      "status": "Present",
+      "confidence": "0.48"
+    },
+    "Asad": {
+      "time": "2025-10-25 13:16:52",
+      "status": "Present",
+      "confidence": "0.40"
+    },
+    "Student-E": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Student-F": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Student-H": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "mid",
+  "course_name": "oop",
+  "db_report_id": "68fc877ae188a70001903512"
+}

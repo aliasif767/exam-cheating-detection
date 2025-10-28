@@ -1,0 +1,60 @@
+{
+  "total_frames": 970,
+  "duration_seconds": 16.166666666666668,
+  "total_students": 4,
+  "present_count": 3,
+  "absent_count": 1,
+  "present_students": [
+    "Ali",
+    "Asad",
+    "Ilyas"
+  ],
+  "absent_students": [
+    "Asif"
+  ],
+  "recognition_history": [
+    {
+      "name": "Asad",
+      "confidence": 0.658852,
+      "frame": 120,
+      "time": "23:13:18"
+    },
+    {
+      "name": "Ali",
+      "confidence": 0.507768,
+      "frame": 570,
+      "time": "23:13:44"
+    },
+    {
+      "name": "Ilyas",
+      "confidence": 0.5989340000000001,
+      "frame": 840,
+      "time": "23:14:00"
+    }
+  ],
+  "attendance_details": {
+    "Asad": {
+      "time": "2025-10-26 23:13:18",
+      "status": "Present",
+      "confidence": "0.66"
+    },
+    "Ali": {
+      "time": "2025-10-26 23:13:44",
+      "status": "Present",
+      "confidence": "0.51"
+    },
+    "Ilyas": {
+      "time": "2025-10-26 23:14:00",
+      "status": "Present",
+      "confidence": "0.60"
+    },
+    "Asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "mid",
+  "course_name": "web",
+  "db_report_id": "68fe64f0e4d1d662377c2807"
+}

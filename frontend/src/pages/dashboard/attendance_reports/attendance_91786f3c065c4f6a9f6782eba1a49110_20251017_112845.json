@@ -1,0 +1,37 @@
+{
+  "total_frames": 403,
+  "duration_seconds": 13.446766666666667,
+  "total_students": 4,
+  "present_count": 0,
+  "absent_count": 4,
+  "present_students": [],
+  "absent_students": [
+    "asif",
+    "student1",
+    "student2",
+    "student3"
+  ],
+  "recognition_history": [],
+  "attendance_details": {
+    "student3": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "student1": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "student2": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  }
+}

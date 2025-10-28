@@ -1,0 +1,53 @@
+{
+  "total_frames": 810,
+  "duration_seconds": 16.2,
+  "total_students": 3,
+  "present_count": 3,
+  "absent_count": 0,
+  "present_students": [
+    "Ali",
+    "Asad",
+    "Asif"
+  ],
+  "absent_students": [],
+  "recognition_history": [
+    {
+      "name": "Asif",
+      "confidence": 0.6708575000000001,
+      "frame": 165,
+      "time": "22:30:45"
+    },
+    {
+      "name": "Ali",
+      "confidence": 0.586605,
+      "frame": 480,
+      "time": "22:31:00"
+    },
+    {
+      "name": "Asad",
+      "confidence": 0.7563124999999999,
+      "frame": 750,
+      "time": "22:31:14"
+    }
+  ],
+  "attendance_details": {
+    "Asif": {
+      "time": "2025-10-24 22:30:45",
+      "status": "Present",
+      "confidence": "0.67"
+    },
+    "Ali": {
+      "time": "2025-10-24 22:31:00",
+      "status": "Present",
+      "confidence": "0.59"
+    },
+    "Asad": {
+      "time": "2025-10-24 22:31:14",
+      "status": "Present",
+      "confidence": "0.76"
+    }
+  },
+  "exam_type": "mid",
+  "course_name": "AI",
+  "db_report_id": "68fbb7e53efe8ab3c95dd3d9"
+}

@@ -1,0 +1,45 @@
+{
+  "total_frames": 403,
+  "duration_seconds": 13.446766666666667,
+  "total_students": 3,
+  "present_count": 2,
+  "absent_count": 1,
+  "present_students": [
+    "ali",
+    "ilyas"
+  ],
+  "absent_students": [
+    "khan"
+  ],
+  "recognition_history": [
+    {
+      "name": "ali",
+      "confidence": 0.7767575,
+      "frame": 15,
+      "time": "14:59:50"
+    },
+    {
+      "name": "ilyas",
+      "confidence": 0.7586625,
+      "frame": 180,
+      "time": "15:00:06"
+    }
+  ],
+  "attendance_details": {
+    "ali": {
+      "time": "2025-10-18 14:59:50",
+      "status": "Present",
+      "confidence": "0.78"
+    },
+    "ilyas": {
+      "time": "2025-10-18 15:00:06",
+      "status": "Present",
+      "confidence": "0.76"
+    },
+    "khan": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "total_frames": 970,
+  "duration_seconds": 16.166666666666668,
+  "total_students": 5,
+  "present_count": 3,
+  "absent_count": 2,
+  "present_students": [
+    "Ali",
+    "Asad",
+    "Ilyas"
+  ],
+  "absent_students": [
+    "Aqiq",
+    "Asif"
+  ],
+  "recognition_history": [
+    {
+      "name": "Asad",
+      "confidence": 0.41547024880608063,
+      "frame": 120,
+      "time": "13:47:09"
+    },
+    {
+      "name": "Ali",
+      "confidence": 0.4214834913969714,
+      "frame": 535,
+      "time": "13:48:14"
+    },
+    {
+      "name": "Ilyas",
+      "confidence": 0.416126714242695,
+      "frame": 840,
+      "time": "13:49:15"
+    }
+  ],
+  "attendance_details": {
+    "Asad": {
+      "time": "2025-10-26 13:47:09",
+      "status": "Present",
+      "confidence": "0.42"
+    },
+    "Ali": {
+      "time": "2025-10-26 13:48:14",
+      "status": "Present",
+      "confidence": "0.42"
+    },
+    "Ilyas": {
+      "time": "2025-10-26 13:49:15",
+      "status": "Present",
+      "confidence": "0.42"
+    },
+    "Aqiq": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "mid",
+  "course_name": "final",
+  "db_report_id": "68fde0a2e5d3c0ae64d9de6c"
+}

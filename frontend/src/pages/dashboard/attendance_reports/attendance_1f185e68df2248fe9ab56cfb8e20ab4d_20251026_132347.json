@@ -1,0 +1,60 @@
+{
+  "total_frames": 810,
+  "duration_seconds": 16.2,
+  "total_students": 5,
+  "present_count": 2,
+  "absent_count": 3,
+  "present_students": [
+    "Ali",
+    "Ilyas"
+  ],
+  "absent_students": [
+    "Aqiq",
+    "Asad",
+    "Asif"
+  ],
+  "recognition_history": [
+    {
+      "name": "Ali",
+      "confidence": 0.4971851539989216,
+      "frame": 540,
+      "time": "13:23:41"
+    },
+    {
+      "name": "Ilyas",
+      "confidence": 0.7342811125808422,
+      "frame": 780,
+      "time": "13:23:46"
+    }
+  ],
+  "attendance_details": {
+    "Ali": {
+      "time": "2025-10-26 13:23:41",
+      "status": "Present",
+      "confidence": "0.50"
+    },
+    "Ilyas": {
+      "time": "2025-10-26 13:23:46",
+      "status": "Present",
+      "confidence": "0.73"
+    },
+    "Asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Asad": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Aqiq": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "final",
+  "course_name": "web",
+  "db_report_id": "68fdda93ceebcbfc370d15e4"
+}

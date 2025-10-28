@@ -1,0 +1,53 @@
+{
+  "total_frames": 213,
+  "duration_seconds": 7.126666666666667,
+  "total_students": 2,
+  "present_count": 3,
+  "absent_count": 0,
+  "present_students": [
+    "Qaim",
+    "mustafa",
+    "shayan"
+  ],
+  "absent_students": [],
+  "recognition_history": [
+    {
+      "name": "mustafa",
+      "confidence": 0.6692675,
+      "frame": 45,
+      "time": "12:08:43"
+    },
+    {
+      "name": "shayan",
+      "confidence": 0.80926,
+      "frame": 90,
+      "time": "12:08:52"
+    },
+    {
+      "name": "Qaim",
+      "confidence": 0.847965,
+      "frame": 120,
+      "time": "12:08:55"
+    }
+  ],
+  "attendance_details": {
+    "mustafa": {
+      "time": "2025-10-23 12:08:43",
+      "status": "Present",
+      "confidence": "0.67"
+    },
+    "shayan": {
+      "time": "2025-10-23 12:08:52",
+      "status": "Present",
+      "confidence": "0.81"
+    },
+    "Qaim": {
+      "time": "2025-10-23 12:08:55",
+      "status": "Present",
+      "confidence": "0.85"
+    }
+  },
+  "exam_type": "Final",
+  "course_name": "Data structure",
+  "db_report_id": "68f9d48ddecf9edb2faf83b6"
+}
