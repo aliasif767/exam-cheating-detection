@@ -1,22 +1,26 @@
-# Python
+# Ignore Python virtual environment
 venv/
+
+# Common Python ignores
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Node/React
+# React/Node ignores
 node_modules/
+build/
+dist/
 
-# OS
+# Logs and system files
+*.log
 .DS_Store
 
-# Large files
-*.avi
-*.mp4
-*.mkv
+# Ignore large files
 *.dll
 *.lib
 *.pyd
 *.exe
-
-# Logs
-*.log
+*.avi
+*.mp4
+*.mkv
