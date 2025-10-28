@@ -1,0 +1,22 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node/React
+node_modules/
+
+# OS
+.DS_Store
+
+# Large files
+*.avi
+*.mp4
+*.mkv
+*.dll
+*.lib
+*.pyd
+*.exe
+
+# Logs
+*.log
