@@ -130,12 +130,7 @@ export default function HomePage() {
                 onClick={() => smoothScroll("testimonials")}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Testimonials
-              </button>
-              <button
-                onClick={() => smoothScroll("stats")}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
+                
                 Stats
               </button>
             </div>
@@ -167,7 +162,7 @@ export default function HomePage() {
                 🚀 Next-Generation Exam Monitoring
               </Badge>
               <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                Secure Online Exams with{" "}
+                Secure Exams with{" "}
                 <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   AI Vision
                 </span>
@@ -398,56 +393,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Trusted by Leading Institutions
-            </h2>
-            <p className="text-xl text-gray-600">
-              See what educators and students are saying about AI Vision Exam
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="bg-white border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="h-4 w-4 text-yellow-400 fill-current"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-gray-600 mb-6 leading-relaxed">
-                    "{testimonial.quote}"
-                  </p>
-                  <div className="flex items-center">
-                    <img
-                      src={testimonial.image}
-                      alt={testimonial.author}
-                      className="w-12 h-12 rounded-full mr-4"
-                    />
-                    <div>
-                      <div className="font-semibold text-gray-900">
-                        {testimonial.author}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {testimonial.role}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {testimonial.institution}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-700">
