@@ -83,7 +83,7 @@ export default function InvigilatorDashboard() {
   const [attendanceVideoFile, setAttendanceVideoFile] = useState<File | null>(null);
   const [attendanceFormValid, setAttendanceFormValid] = useState(false);
 
-  // Video display
+  // Video display (Keeping state, but not using it to display for AI report)
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function InvigilatorDashboard() {
   const [processingMode, setProcessingMode] = useState<"idle" | "ai" | "attendance">("idle");
   const [processingStatus, setProcessingStatus] = useState<"idle" | "processing" | "complete" | "error">("idle");
   const [processingError, setProcessingError] = useState<string | null>(null);
-  const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
+  const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null); // Kept, but not set for AI
   const [aiReportId, setAiReportId] = useState<string | null>(null);
   const [aiReportData, setAiReportData] = useState<AiReportData | null>(null);
 
@@ -168,7 +168,7 @@ export default function InvigilatorDashboard() {
     setAttendanceFormValid(isValid);
   }, [attendanceExamType, attendanceCourseName, attendanceVideoFile]);
 
-  // Handle video URL changes
+  // Handle video URL changes (This logic is now unused for AI, but kept for future potential use)
   useEffect(() => {
     if (outputVideoUrl && videoRef.current) {
       setVideoError(null);
@@ -202,7 +202,7 @@ export default function InvigilatorDashboard() {
   const handleAiVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       setAiVideoFile(e.target.files[0]);
-      setOutputVideoUrl(null);
+      setOutputVideoUrl(null); // Ensure video URL is cleared
       setAiReportId(null);
       setProcessingStatus("idle");
       setProcessingError(null);
@@ -250,7 +250,7 @@ export default function InvigilatorDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        setOutputVideoUrl(data.outputUrl);
+        // REMOVED: setOutputVideoUrl(data.outputUrl); to prevent video display
         setAiReportId(data.reportId);
         setAiReportData({
           examType: aiExamType,
@@ -258,10 +258,7 @@ export default function InvigilatorDashboard() {
           summary: data.summary,
         });
         setProcessingStatus("complete");
-
-        setTimeout(() => {
-          document.getElementById("video-report")?.scrollIntoView({ behavior: "smooth" });
-        }, 500);
+        // REMOVED: Scroll to view processed video
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || "Processing failed");
@@ -578,15 +575,15 @@ export default function InvigilatorDashboard() {
                   )}
 
                   {/* Success Alert */}
-                  {processingStatus === "complete" && processingMode === "ai" && outputVideoUrl && (
+                  {processingStatus === "complete" && processingMode === "ai" && (
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex gap-3">
                       <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-green-800">
-                        <p className="font-semibold">Detection Complete!</p>
+                        <p className="font-semibold">AI Detection Complete!</p>
                         <p className="mt-1">Exam: {aiExamType} | Course: {aiCourseName}</p>
-                        <a href="#video-report" className="text-blue-600 hover:underline text-xs mt-2 block">
-                          Scroll to view processed video
-                        </a>
+                        <p className="text-blue-600 text-xs mt-2 block">
+                          Results are available in the Report Dashboard.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -701,7 +698,7 @@ export default function InvigilatorDashboard() {
           )}
         </div>
 
-        {/* Video Report */}
+        {/* Video Report - ONLY Renders if outputVideoUrl is set (i.e., NOT for AI now) */}
         {outputVideoUrl && (
           <div id="video-report" className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">

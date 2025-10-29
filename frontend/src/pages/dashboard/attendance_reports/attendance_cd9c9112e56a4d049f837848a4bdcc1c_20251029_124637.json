@@ -1,0 +1,40 @@
+{
+  "total_frames": 139,
+  "duration_seconds": 4.633333333333334,
+  "total_students": 4,
+  "present_count": 0,
+  "absent_count": 4,
+  "present_students": [],
+  "absent_students": [
+    "Ali",
+    "Asad",
+    "Asif",
+    "Ilyas"
+  ],
+  "recognition_history": [],
+  "attendance_details": {
+    "Asad": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Ali": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Asif": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    },
+    "Ilyas": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "quiz",
+  "course_name": "data base",
+  "db_report_id": "6901c65dd3eace78ced4a261"
+}
