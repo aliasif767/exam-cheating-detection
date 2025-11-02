@@ -952,6 +952,81 @@ def process_attendance_video():
 # ===============================================
 # NEW Endpoint to Retrieve Exam Attendance Reports
 # ===============================================
+# ===============================================
+# NEW Endpoint: Get Student's Attendance Reports
+# ===============================================
+
+@app.route('/api/attendance/student-reports', methods=['GET', 'OPTIONS'])
+def get_student_attendance_reports():
+    """Get attendance reports for a specific student"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    print("\n" + "=" * 60)
+    print("[REQUEST] Get Student Attendance Reports")
+    print("=" * 60)
+    
+    try:
+        # Get student name from query parameter
+        student_name = request.args.get('studentName')
+        
+        if not student_name or not student_name.strip():
+            print("✗ Student name is required")
+            return jsonify({
+                "success": False,
+                "message": "Student name is required"
+            }), 400
+        
+        if mongo_manager.db is None:
+            print("✗ Database connection failed")
+            return jsonify({
+                "success": False,
+                "message": "Database connection failed"
+            }), 500
+        
+        collection = mongo_manager.db['exam_attendance']
+        
+        # Find all attendance records where student is either present or absent
+        attendance_reports = list(collection.find({
+            '$or': [
+                {'present_students': student_name.strip()},
+                {'absent_students': student_name.strip()}
+            ]
+        }).sort('createdAt', pymongo.DESCENDING))
+        
+        # Process reports to add student status
+        processed_reports = []
+        for report in attendance_reports:
+            report['_id'] = str(report['_id'])
+            
+            # Determine if student was present or absent
+            is_present = student_name.strip() in report.get('present_students', [])
+            report['student_status'] = 'Present' if is_present else 'Absent'
+            
+            processed_reports.append(report)
+        
+        print(f"✓ Retrieved {len(processed_reports)} attendance reports for {student_name}")
+        
+        response = make_response(jsonify({
+            "success": True,
+            "data": processed_reports,
+            "count": len(processed_reports)
+        }))
+        
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 200
+        
+    except Exception as e:
+        print(f"✗ Error: {str(e)}")
+        traceback.print_exc()
+        
+        response = make_response(jsonify({
+            "success": False,
+            "message": f"Error retrieving attendance reports: {str(e)}"
+        }))
+        
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 500
 
 @app.route('/api/attendance/reports', methods=['GET'])
 def get_exam_attendance_reports():

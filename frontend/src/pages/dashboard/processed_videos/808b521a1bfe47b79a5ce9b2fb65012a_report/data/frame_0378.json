@@ -1,0 +1,95 @@
+[
+    {
+        "stable_id": 1,
+        "yolo_id": 2,
+        "frame_number": 378,
+        "body_detection": {
+            "bbox": {
+                "x1": 297,
+                "y1": 164,
+                "x2": 555,
+                "y2": 713
+            }
+        },
+        "enhanced_face_tracking": {
+            "detected": false,
+            "phone_detected": false,
+            "horizontal_movement": {
+                "difference": 0,
+                "direction": "none",
+                "is_suspicious": false
+            },
+            "vertical_movement": {
+                "difference": 0,
+                "direction": "none",
+                "is_suspicious": false
+            },
+            "cheating_detection": {
+                "is_cheating_movement": false,
+                "is_cheating_overall": false
+            }
+        }
+    },
+    {
+        "stable_id": 3,
+        "yolo_id": 3,
+        "frame_number": 378,
+        "body_detection": {
+            "bbox": {
+                "x1": 646,
+                "y1": 208,
+                "x2": 989,
+                "y2": 714
+            }
+        },
+        "enhanced_face_tracking": {
+            "detected": false,
+            "phone_detected": false,
+            "horizontal_movement": {
+                "difference": 0,
+                "direction": "none",
+                "is_suspicious": false
+            },
+            "vertical_movement": {
+                "difference": 0,
+                "direction": "none",
+                "is_suspicious": false
+            },
+            "cheating_detection": {
+                "is_cheating_movement": false,
+                "is_cheating_overall": false
+            }
+        }
+    },
+    {
+        "stable_id": 2,
+        "yolo_id": 4,
+        "frame_number": 378,
+        "body_detection": {
+            "bbox": {
+                "x1": 560,
+                "y1": 158,
+                "x2": 753,
+                "y2": 535
+            }
+        },
+        "enhanced_face_tracking": {
+            "detected": true,
+            "phone_detected": false,
+            "horizontal_movement": {
+                "difference": 19190,
+                "direction": "right",
+                "is_suspicious": false
+            },
+            "vertical_movement": {
+                "difference": 1964,
+                "direction": "down",
+                "is_suspicious": false
+            },
+            "cheating_detection": {
+                "is_cheating_movement": true,
+                "is_cheating_overall": true
+            }
+        }
+    }
+]

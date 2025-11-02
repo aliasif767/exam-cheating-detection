@@ -1,0 +1,56 @@
+[
+    {
+        "stable_id": 1,
+        "yolo_id": 2,
+        "frame_number": 400,
+        "body_detection": {
+            "bbox": {
+                "x1": 295,
+                "y1": 176,
+                "x2": 558,
+                "y2": 712
+            }
+        },
+        "detection_results": {
+            "face_detected": false,
+            "phone_in_proximity": false,
+            "flagged_overall": false
+        }
+    },
+    {
+        "stable_id": 3,
+        "yolo_id": 3,
+        "frame_number": 400,
+        "body_detection": {
+            "bbox": {
+                "x1": 644,
+                "y1": 205,
+                "x2": 992,
+                "y2": 713
+            }
+        },
+        "detection_results": {
+            "face_detected": false,
+            "phone_in_proximity": false,
+            "flagged_overall": false
+        }
+    },
+    {
+        "stable_id": 2,
+        "yolo_id": 4,
+        "frame_number": 400,
+        "body_detection": {
+            "bbox": {
+                "x1": 568,
+                "y1": 158,
+                "x2": 754,
+                "y2": 533
+            }
+        },
+        "detection_results": {
+            "face_detected": false,
+            "phone_in_proximity": false,
+            "flagged_overall": false
+        }
+    }
+]

@@ -9,6 +9,13 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
+  Search,
+  Filter,
+  Download,
+  TrendingUp,
+  Award,
+  BookOpen,
+  Target,
 } from "lucide-react";
 import { 
   Card, 
@@ -44,20 +51,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// Removed unused Popover imports
-// Removed unused CalendarPicker import
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 
-// =================================================================
-// REAL API INTEGRATION - CALLS FLASK BACKEND
-// =================================================================
-
 const API_BASE_URL = "http://localhost:5001/api";
 
-/**
- * Fetch all exams from MongoDB via Flask API
- */
 const fetchExamsFromDB = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/exams`);
@@ -73,9 +71,6 @@ const fetchExamsFromDB = async () => {
   }
 };
 
-/**
- * Create a new exam in MongoDB via Flask API
- */
 const createExamInDB = async (newExamData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/exams`, {
@@ -100,9 +95,6 @@ const createExamInDB = async (newExamData) => {
   }
 };
 
-/**
- * Update an existing exam in MongoDB via Flask API
- */
 const updateExamInDB = async (examId, updatedData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
@@ -127,9 +119,6 @@ const updateExamInDB = async (examId, updatedData) => {
   }
 };
 
-/**
- * Delete an exam from MongoDB via Flask API
- */
 const deleteExamInDB = async (examId) => {
   try {
     const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
@@ -150,15 +139,11 @@ const deleteExamInDB = async (examId) => {
   }
 };
 
-// =================================================================
-// COMPONENT LOGIC
-// =================================================================
-
 const initialFormData = {
   title: "",
   course: "",
   duration: 60,
-  date: new Date(), // Keep as Date object internally, but will only use day/month/year
+  date: new Date(),
   status: "draft",
   students: 0,
   questions: 0,
@@ -166,23 +151,20 @@ const initialFormData = {
   passingMarks: 40,
 };
 
-// Helper function to convert DD/MM/YYYY string to Date object
 const parseDateString = (dateString) => {
     const parts = dateString.split('/');
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+      const month = parseInt(parts[1], 10) - 1;
       const year = parseInt(parts[2], 10);
       
-      // Create date, keeping time at midnight UTC to avoid timezone issues on save
       const newDate = new Date(Date.UTC(year, month, day, 0, 0, 0));
 
-      // Simple validation
       if (!isNaN(newDate.getTime()) && newDate.getUTCDate() === day) {
         return newDate;
       }
     }
-    return null; // Return null for invalid input
+    return null;
 };
 
 export default function ExamManagement() {
@@ -194,9 +176,9 @@ export default function ExamManagement() {
   const [currentExam, setCurrentExam] = useState(null);
   const [formData, setFormData] = useState(initialFormData);
   const [dateInput, setDateInput] = useState(format(initialFormData.date, "dd/MM/yyyy"));
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
-  // Load exams from MongoDB on component mount
   const loadExams = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -221,7 +203,7 @@ export default function ExamManagement() {
   const handleCreateExam = () => {
     setCurrentExam(null);
     setFormData(initialFormData);
-    setDateInput(format(initialFormData.date, "dd/MM/yyyy")); // Reset date input
+    setDateInput(format(initialFormData.date, "dd/MM/yyyy"));
     setExamDialog(true);
   };
 
@@ -230,9 +212,8 @@ export default function ExamManagement() {
     const dateObject = new Date(exam.date);
     setFormData({
       ...exam,
-      date: dateObject, // Keep date as object in formData
+      date: dateObject,
     });
-    // Set string for manual input field
     setDateInput(format(dateObject, "dd/MM/yyyy")); 
     setExamDialog(true);
   };
@@ -254,18 +235,15 @@ export default function ExamManagement() {
     }));
   };
 
-  // NEW HANDLER for manual DD/MM/YYYY input
   const handleDateInputStringChange = (e) => {
     const dateString = e.target.value;
-    setDateInput(dateString); // Update string state immediately
+    setDateInput(dateString);
 
     const newDate = parseDateString(dateString);
 
     if (newDate) {
       setFormData((prev) => ({ ...prev, date: newDate }));
-    } 
-    // If input is incomplete or invalid, we intentionally keep the previous valid Date object 
-    // in formData. Validation happens in handleSubmit.
+    }
   };
 
   const handleSubmit = async () => {
@@ -278,7 +256,6 @@ export default function ExamManagement() {
       return;
     }
     
-    // Final check on the date input string
     const finalDateObject = parseDateString(dateInput);
     if (!finalDateObject) {
       toast({
@@ -292,7 +269,6 @@ export default function ExamManagement() {
     setIsSaving(true);
     const examToSave = {
       ...formData,
-      // Use the correctly parsed and validated date object for ISO conversion
       date: finalDateObject.toISOString(), 
     };
 
@@ -352,106 +328,182 @@ export default function ExamManagement() {
   const getStatusBadge = (status) => {
     switch (status) {
       case "scheduled":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Scheduled</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Scheduled</Badge>;
       case "active":
-        return <Badge className="bg-green-500 text-white hover:bg-green-600">Active</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600 text-white">Active</Badge>;
       case "completed":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Completed</Badge>;
+        return <Badge className="bg-purple-500 hover:bg-purple-600 text-white">Completed</Badge>;
       case "draft":
-        return <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-300">Draft</Badge>;
+        return <Badge className="bg-gray-400 hover:bg-gray-500 text-white">Draft</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
+  const filteredExams = exams.filter(exam => 
+    exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    exam.course.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-800">Exam Management 📝</h1>
-        <Button onClick={handleCreateExam} className="flex items-center gap-2">
-          <PlusCircle size={18} />
-          <span>Create New Exam</span>
-        </Button>
+    <div className="p-8 space-y-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* Header Section */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-8">
+        <div className="absolute inset-0 bg-black opacity-5"></div>
+        <div className="absolute -right-20 -top-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute -left-20 -bottom-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
+        
+        <div className="relative flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <Badge className="bg-white bg-opacity-20 text-white border-0 backdrop-blur-sm">
+                Exam Management System
+              </Badge>
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-2">Manage Exams 📝</h1>
+            <p className="text-purple-100 text-lg">Create, edit, and organize all your examinations</p>
+          </div>
+          <Button 
+            onClick={handleCreateExam} 
+            size="lg"
+            className="bg-white text-purple-600 hover:bg-purple-50 font-semibold shadow-xl"
+          >
+            <PlusCircle className="mr-2" size={20} />
+            Create New Exam
+          </Button>
+        </div>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Exams</CardTitle>
-            <FileText className="h-5 w-5 text-blue-600" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Total Exams</CardTitle>
+            <div className="p-2 bg-blue-500 rounded-lg group-hover:scale-110 transition-transform">
+              <FileText className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{exams.length}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold text-blue-700">{exams.length}</div>
+            <p className="text-xs text-blue-600 font-medium mt-1">
               {exams.filter((e) => e.status === "active").length} currently active
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-green-50 to-emerald-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-            <Calendar className="h-5 w-5 text-green-600" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Scheduled</CardTitle>
+            <div className="p-2 bg-green-500 rounded-lg group-hover:scale-110 transition-transform">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-3xl font-bold text-green-700">
               {exams.filter((e) => e.status === "scheduled").length}
             </div>
-            <p className="text-xs text-muted-foreground">Exams waiting to start</p>
+            <p className="text-xs text-green-600 font-medium mt-1">Ready to start</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-purple-50 to-purple-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-5 w-5 text-purple-600" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Completed</CardTitle>
+            <div className="p-2 bg-purple-500 rounded-lg group-hover:scale-110 transition-transform">
+              <CheckCircle className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-3xl font-bold text-purple-700">
               {exams.filter((e) => e.status === "completed").length}
             </div>
-            <p className="text-xs text-muted-foreground">Finished and ready for results</p>
+            <p className="text-xs text-purple-600 font-medium mt-1">Finished exams</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-orange-50 to-amber-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <Users className="h-5 w-5 text-orange-600" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Total Students</CardTitle>
+            <div className="p-2 bg-orange-500 rounded-lg group-hover:scale-110 transition-transform">
+              <Users className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-3xl font-bold text-orange-700">
               {exams.reduce((acc, exam) => acc + (exam.students || 0), 0)}
             </div>
-            <p className="text-xs text-muted-foreground">Across all exams</p>
+            <p className="text-xs text-orange-600 font-medium mt-1">Across all exams</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs and Table Section */}
-      <Tabs defaultValue="all">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All Exams ({exams.length})</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="draft">Drafts</TabsTrigger>
+      {/* Search Bar */}
+      <Card className="border-0 shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Input
+                placeholder="Search exams by title or course..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 text-base"
+              />
+            </div>
+            <Button variant="outline" className="h-12">
+              <Filter className="mr-2" size={18} />
+              Filter
+            </Button>
+            <Button variant="outline" className="h-12">
+              <Download className="mr-2" size={18} />
+              Export
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs Section */}
+      <Tabs defaultValue="all" className="space-y-6">
+        <TabsList className="bg-white p-1 rounded-xl shadow-md border-0">
+          <TabsTrigger value="all" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white">
+            All Exams ({filteredExams.length})
+          </TabsTrigger>
+          <TabsTrigger value="scheduled" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white">
+            Scheduled
+          </TabsTrigger>
+          <TabsTrigger value="active" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white">
+            Active
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Completed
+          </TabsTrigger>
+          <TabsTrigger value="draft" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-gray-600 data-[state=active]:text-white">
+            Drafts
+          </TabsTrigger>
         </TabsList>
 
         {["all", "scheduled", "active", "completed", "draft"].map((status) => (
           <TabsContent key={status} value={status} className="space-y-4">
             {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                <p className="ml-4 text-gray-500">Loading exams from database...</p>
-              </div>
+              <Card className="border-0 shadow-lg">
+                <CardContent className="flex flex-col justify-center items-center h-96">
+                  <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mb-4"></div>
+                  <p className="text-gray-600 text-lg font-medium">Loading exams from database...</p>
+                </CardContent>
+              </Card>
             ) : (
               <ExamTable
                 exams={
                   status === "all"
-                    ? exams
-                    : exams.filter((exam) => exam.status === status)
+                    ? filteredExams
+                    : filteredExams.filter((exam) => exam.status === status)
                 }
                 getStatusBadge={getStatusBadge}
                 handleEditExam={handleEditExam}
@@ -465,42 +517,54 @@ export default function ExamManagement() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={examDialog} onOpenChange={setExamDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{currentExam ? "Edit Exam" : "Create Exam"}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              {currentExam ? (
+                <>
+                  <Edit className="w-6 h-6 text-blue-600" />
+                  Edit Exam
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="w-6 h-6 text-green-600" />
+                  Create New Exam
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-base">
               {currentExam
                 ? `Update details for ${currentExam.title}`
-                : "Enter the details for the new exam."}
+                : "Enter the details for the new exam below."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <Label htmlFor="title">Exam Title *</Label>
+          <div className="grid gap-6 py-6">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title" className="text-base font-semibold">Exam Title *</Label>
                 <Input
                   id="title"
                   name="title"
-                  placeholder="e.g., Final Physics"
+                  placeholder="e.g., Final Physics Examination"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="mt-1"
+                  className="h-11"
                 />
               </div>
-              <div>
-                <Label htmlFor="course">Course *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="course" className="text-base font-semibold">Course *</Label>
                 <Input
                   id="course"
                   name="course"
                   placeholder="e.g., Physics 302"
                   value={formData.course}
                   onChange={handleInputChange}
-                  className="mt-1"
+                  className="h-11"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="duration">Duration (minutes)</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="duration" className="text-base font-semibold">Duration (min)</Label>
                   <Input
                     id="duration"
                     name="duration"
@@ -508,16 +572,16 @@ export default function ExamManagement() {
                     min="1"
                     value={formData.duration}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className="h-11"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-base font-semibold">Status</Label>
                   <Select
                     value={formData.status}
                     onValueChange={(value) => handleSelectChange("status", value)}
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -528,8 +592,8 @@ export default function ExamManagement() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="questions">Number of Questions</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="questions" className="text-base font-semibold">Questions</Label>
                   <Input
                     id="questions"
                     name="questions"
@@ -537,11 +601,11 @@ export default function ExamManagement() {
                     min="0"
                     value={formData.questions}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className="h-11"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="students">Target Students</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="students" className="text-base font-semibold">Students</Label>
                   <Input
                     id="students"
                     name="students"
@@ -549,13 +613,13 @@ export default function ExamManagement() {
                     min="0"
                     value={formData.students}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className="h-11"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="totalMarks">Total Marks</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="totalMarks" className="text-base font-semibold">Total Marks</Label>
                   <Input
                     id="totalMarks"
                     name="totalMarks"
@@ -563,11 +627,11 @@ export default function ExamManagement() {
                     min="1"
                     value={formData.totalMarks}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className="h-11"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="passingMarks">Passing Marks</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="passingMarks" className="text-base font-semibold">Passing Marks</Label>
                   <Input
                     id="passingMarks"
                     name="passingMarks"
@@ -575,35 +639,36 @@ export default function ExamManagement() {
                     min="0"
                     value={formData.passingMarks}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className="h-11"
                   />
                 </div>
               </div>
               
-              {/* MODIFIED SECTION: Manual Date Input */}
-              <div>
-                <Label htmlFor="examDate">Exam Date (DD/MM/YYYY) *</Label>
-                <Input
-                  id="examDate"
-                  name="examDate"
-                  placeholder="e.g., 27/10/2025"
-                  value={dateInput}
-                  onChange={handleDateInputStringChange}
-                  className="mt-1"
-                />
+              <div className="space-y-2">
+                <Label htmlFor="examDate" className="text-base font-semibold">Exam Date (DD/MM/YYYY) *</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <Input
+                    id="examDate"
+                    name="examDate"
+                    placeholder="e.g., 27/10/2025"
+                    value={dateInput}
+                    onChange={handleDateInputStringChange}
+                    className="h-11 pl-10"
+                  />
+                </div>
               </div>
-              {/* END MODIFIED SECTION */}
 
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExamDialog(false)} disabled={isSaving}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setExamDialog(false)} disabled={isSaving} className="h-11">
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSaving}>
+            <Button onClick={handleSubmit} disabled={isSaving} className="h-11 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600">
               {isSaving ? (
                 <>
-                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full"></span>
+                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full inline-block"></span>
                   {currentExam ? "Saving..." : "Creating..."}
                 </>
               ) : currentExam ? (
@@ -616,25 +681,25 @@ export default function ExamManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <AlertCircle size={20} /> Confirm Deletion
+            <DialogTitle className="text-red-600 flex items-center gap-2 text-xl">
+              <AlertCircle size={24} /> Confirm Deletion
             </DialogTitle>
-            <DialogDescription>
-              Are you absolutely sure you want to delete "{currentExam?.title}"? This action cannot be undone.
+            <DialogDescription className="text-base pt-2">
+              Are you absolutely sure you want to delete <strong>"{currentExam?.title}"</strong>? This action cannot be undone and will permanently remove all associated data.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={isSaving}>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={isSaving} className="h-11">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteExam} disabled={isSaving}>
+            <Button variant="destructive" onClick={handleDeleteExam} disabled={isSaving} className="h-11">
               {isSaving ? (
                 <>
-                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full"></span>
+                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full inline-block"></span>
                   Deleting...
                 </>
               ) : (
@@ -650,7 +715,6 @@ export default function ExamManagement() {
   );
 }
 
-// Exam Table Component
 const ExamTable = ({
   exams,
   getStatusBadge,
@@ -660,74 +724,98 @@ const ExamTable = ({
 }) => {
   if (exams.length === 0) {
     return (
-      <div className="text-center p-10 border rounded-xl shadow-sm bg-white">
-        <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-xl font-semibold mb-2">No Exams Found</h3>
-        <p className="text-gray-500 mb-4">Get started by creating your first exam.</p>
-        <Button onClick={handleCreateExam} className="mt-2">
-          <PlusCircle size={18} className="mr-2" /> Create Exam
-        </Button>
-      </div>
+      <Card className="border-0 shadow-lg">
+        <CardContent className="text-center p-16">
+          <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <FileText className="h-12 w-12 text-indigo-600" />
+          </div>
+          <h3 className="text-2xl font-bold mb-3 text-gray-900">No Exams Found</h3>
+          <p className="text-gray-600 mb-6 text-lg">Get started by creating your first exam.</p>
+          <Button onClick={handleCreateExam} size="lg" className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600">
+            <PlusCircle size={20} className="mr-2" /> Create First Exam
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="border-0 shadow-lg overflow-hidden">
       <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Exam Title</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Students</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {exams.map((exam) => (
-              <TableRow key={exam._id || exam.id}>
-                <TableCell className="font-semibold text-gray-900">{exam.title}</TableCell>
-                <TableCell className="text-gray-600">{exam.course}</TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-1 text-sm">
-                    <Calendar size={14} className="text-gray-500" />
-                    <span>
-                      {/* Note: The format here assumes the stored date is a standard ISO date, 
-                          which is handled by the modification in handleSubmit. */}
-                      {exam.date ? format(new Date(exam.date), "dd/MM/yyyy") : "N/A"}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>{exam.duration} min</TableCell>
-                <TableCell>{getStatusBadge(exam.status)}</TableCell>
-                <TableCell className="text-center">{exam.students}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditExam(exam)}
-                      title="Edit Exam"
-                    >
-                      <Edit size={16} className="text-blue-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeletePrompt(exam)}
-                      title="Delete Exam"
-                    >
-                      <Trash2 size={16} className="text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200">
+                <TableHead className="font-bold text-gray-700">Exam Title</TableHead>
+                <TableHead className="font-bold text-gray-700">Course</TableHead>
+                <TableHead className="font-bold text-gray-700">Date</TableHead>
+                <TableHead className="font-bold text-gray-700">Duration</TableHead>
+                <TableHead className="font-bold text-gray-700">Status</TableHead>
+                <TableHead className="font-bold text-gray-700 text-center">Students</TableHead>
+                <TableHead className="font-bold text-gray-700 text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {exams.map((exam, index) => (
+                <TableRow 
+                  key={exam._id || exam.id} 
+                  className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200"
+                >
+                  <TableCell className="font-semibold text-gray-900">{exam.title}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={16} className="text-indigo-500" />
+                      <span className="text-gray-700">{exam.course}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar size={16} className="text-green-500" />
+                      <span className="text-gray-700">
+                        {exam.date ? format(new Date(exam.date), "dd/MM/yyyy") : "N/A"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-blue-500" />
+                      <span className="text-gray-700">{exam.duration} min</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(exam.status)}</TableCell>
+                  <TableCell className="text-center">
+                    <div className="inline-flex items-center gap-2 bg-orange-100 px-3 py-1 rounded-full">
+                      <Users size={14} className="text-orange-600" />
+                      <span className="text-orange-700 font-semibold">{exam.students}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditExam(exam)}
+                        title="Edit Exam"
+                        className="hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit size={18} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeletePrompt(exam)}
+                        title="Delete Exam"
+                        className="hover:bg-red-100 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

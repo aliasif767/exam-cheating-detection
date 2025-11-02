@@ -1,0 +1,62 @@
+{
+    "processing_info": {
+        "total_frames": 623,
+        "video_path": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\uploads\\808b521a1bfe47b79a5ce9b2fb65012a_input.mp4",
+        "output_directory": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\processed_videos\\808b521a1bfe47b79a5ce9b2fb65012a_report",
+        "output_video_path": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\processed_videos\\808b521a1bfe47b79a5ce9b2fb65012a_report\\cheating_detection_video.mp4",
+        "processing_date": "2025-11-01T22:58:54.773439",
+        "average_processing_time": 0.4979,
+        "total_processing_time": 310.21
+    },
+    "cheating_detection_results": {
+        "total_stable_persons_created": 3,
+        "total_movement_incidents": 2,
+        "persons_with_movement_incident": 2,
+        "cheating_summary": [
+            {
+                "stable_id": 1,
+                "frames_tracked": 5,
+                "last_seen_frame": 622,
+                "cheating_status_movement_only": {
+                    "currently_cheating": true,
+                    "total_incidents": 1,
+                    "incidents_details": [
+                        {
+                            "detected_at_frame": 5,
+                            "horizontal_movement": 41232,
+                            "vertical_movement": 11514,
+                            "directions": "right-down"
+                        }
+                    ]
+                }
+            },
+            {
+                "stable_id": 2,
+                "frames_tracked": 5,
+                "last_seen_frame": 622,
+                "cheating_status_movement_only": {
+                    "currently_cheating": true,
+                    "total_incidents": 1,
+                    "incidents_details": [
+                        {
+                            "detected_at_frame": 5,
+                            "horizontal_movement": 24996,
+                            "vertical_movement": 8693,
+                            "directions": "right-up"
+                        }
+                    ]
+                }
+            },
+            {
+                "stable_id": 3,
+                "frames_tracked": 0,
+                "last_seen_frame": 622,
+                "cheating_status_movement_only": {
+                    "currently_cheating": false,
+                    "total_incidents": 0,
+                    "incidents_details": []
+                }
+            }
+        ]
+    }
+}

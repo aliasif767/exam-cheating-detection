@@ -1,0 +1,48 @@
+{
+  "total_frames": 970,
+  "duration_seconds": 16.166666666666668,
+  "total_students": 3,
+  "present_count": 2,
+  "absent_count": 1,
+  "present_students": [
+    "Asad",
+    "Ilyas"
+  ],
+  "absent_students": [
+    "umer"
+  ],
+  "recognition_history": [
+    {
+      "name": "Asad",
+      "confidence": 0.658852,
+      "frame": 120,
+      "time": "22:50:25"
+    },
+    {
+      "name": "Ilyas",
+      "confidence": 0.5989340000000001,
+      "frame": 840,
+      "time": "22:51:04"
+    }
+  ],
+  "attendance_details": {
+    "Asad": {
+      "time": "2025-11-01 22:50:25",
+      "status": "Present",
+      "confidence": "0.66"
+    },
+    "Ilyas": {
+      "time": "2025-11-01 22:51:04",
+      "status": "Present",
+      "confidence": "0.60"
+    },
+    "umer": {
+      "time": "N/A",
+      "status": "Absent",
+      "confidence": "N/A"
+    }
+  },
+  "exam_type": "Mid",
+  "course_name": "Data Structure",
+  "db_report_id": "6906488f96c3650310c57d96"
+}

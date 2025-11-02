@@ -13,9 +13,15 @@ import {
   UserCheck,
   Clock,
   CheckCircle,
-  XCircle, // Added for absent status
-  Check, // Added for present list item
-  UserX, // Added for absent list item
+  XCircle,
+  Check,
+  UserX,
+  TrendingUp,
+  Activity,
+  Download,
+  Filter,
+  BarChart3,
+  Eye,
 } from "lucide-react";
 import {
   Card,
@@ -37,11 +43,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator"; // Added Separator
-
-// =================================================================
-// TYPE DEFINITIONS
-// =================================================================
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 
 interface VideoReport {
   _id: string;
@@ -56,7 +59,6 @@ interface VideoReport {
   outputUrl?: string;
 }
 
-// Keys match the snake_case used in mongodb_manager.py
 interface AttendanceReport {
     _id: string;
     exam_type: string;
@@ -65,21 +67,14 @@ interface AttendanceReport {
     total_students: number;
     present_count: number;
     absent_count: number;
-    present_students: string[]; // FIX: Changed type to string[]
-    absent_students: string[]; // FIX: Changed type to string[]
+    present_students: string[];
+    absent_students: string[];
     duration_seconds: number;
     createdAt: string;
 }
 
-// =================================================================
-// API INTEGRATION - CALLS FLASK BACKEND
-// =================================================================
-
 const API_BASE_URL = "http://localhost:5001/api";
 
-/**
- * Fetch all video reports from MongoDB via Flask API
- */
 const fetchVideoReportsFromDB = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/ai/reports`);
@@ -94,9 +89,6 @@ const fetchVideoReportsFromDB = async () => {
   }
 };
 
-/**
- * Fetch all attendance reports from MongoDB via Flask API
- */
 const fetchAttendanceReportsFromDB = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/attendance/reports`);
@@ -111,18 +103,14 @@ const fetchAttendanceReportsFromDB = async () => {
     }
 };
 
-// =================================================================
-// COMPONENTS
-// =================================================================
-
 export default function ReportManagement() {
   const [videoReports, setVideoReports] = useState<VideoReport[]>([]);
   const [attendanceReports, setAttendanceReports] = useState<AttendanceReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedVideoReport, setSelectedVideoReport] = useState<VideoReport | null>(null);
-  const [selectedAttendanceReport, setSelectedAttendanceReport] = useState<AttendanceReport | null>(null); // NEW STATE
+  const [selectedAttendanceReport, setSelectedAttendanceReport] = useState<AttendanceReport | null>(null);
   const [videoDialog, setVideoDialog] = useState(false);
-  const [attendanceDialog, setAttendanceDialog] = useState(false); // NEW STATE
+  const [attendanceDialog, setAttendanceDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
@@ -156,7 +144,6 @@ export default function ReportManagement() {
     setVideoDialog(true);
   };
   
-  // NEW HANDLER
   const handleViewAttendanceReport = (report: AttendanceReport) => {
     setSelectedAttendanceReport(report);
     setAttendanceDialog(true);
@@ -172,61 +159,178 @@ export default function ReportManagement() {
     (report.course_name && report.course_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Calculate stats
+  const totalViolations = videoReports.reduce((sum, r) => sum + r.proctoringViolationsCount, 0);
+  const processedReports = videoReports.filter(r => r.status === 'processed').length;
+  const totalPresent = attendanceReports.reduce((sum, r) => sum + r.present_count, 0);
+  const totalAbsent = attendanceReports.reduce((sum, r) => sum + r.absent_count, 0);
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-800">Report Management 📊</h1>
-        <Button onClick={loadReports} variant="outline">
-          <MonitorPlay size={18} className="mr-2" /> Refresh Reports
-        </Button>
+    <div className="p-8 space-y-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* Header Section */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl shadow-2xl p-8">
+        <div className="absolute inset-0 bg-black opacity-5"></div>
+        <div className="absolute -right-20 -top-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute -left-20 -bottom-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
+        
+        <div className="relative flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <Badge className="bg-white bg-opacity-20 text-white border-0 backdrop-blur-sm">
+                Analytics Dashboard
+              </Badge>
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-2">Report Management 📊</h1>
+            <p className="text-blue-100 text-lg">View and analyze exam reports and attendance data</p>
+          </div>
+          <Button 
+            onClick={loadReports} 
+            size="lg"
+            className="bg-white text-indigo-600 hover:bg-blue-50 font-semibold shadow-xl"
+          >
+            <Activity className="mr-2" size={20} />
+            Refresh Data
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center space-x-2 mb-6">
-        <Search className="h-5 w-5 text-gray-500" />
-        <Input
-          placeholder="Search by Exam Type or Course Name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-md"
-        />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700">Video Reports</CardTitle>
+            <div className="p-2 bg-blue-500 rounded-lg group-hover:scale-110 transition-transform">
+              <Film className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-700">{videoReports.length}</div>
+            <p className="text-xs text-blue-600 font-medium mt-1">
+              {processedReports} processed
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-red-50 to-red-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700">Total Violations</CardTitle>
+            <div className="p-2 bg-red-500 rounded-lg group-hover:scale-110 transition-transform">
+              <AlertCircle className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-700">{totalViolations}</div>
+            <p className="text-xs text-red-600 font-medium mt-1">Detected incidents</p>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-purple-50 to-purple-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700">Attendance Reports</CardTitle>
+            <div className="p-2 bg-purple-500 rounded-lg group-hover:scale-110 transition-transform">
+              <UserCheck className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-700">{attendanceReports.length}</div>
+            <p className="text-xs text-purple-600 font-medium mt-1">
+              {totalPresent} total present
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-green-50 to-emerald-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700">Attendance Rate</CardTitle>
+            <div className="p-2 bg-green-500 rounded-lg group-hover:scale-110 transition-transform">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-700">
+              {totalPresent + totalAbsent > 0 
+                ? Math.round((totalPresent / (totalPresent + totalAbsent)) * 100) 
+                : 0}%
+            </div>
+            <p className="text-xs text-green-600 font-medium mt-1">Overall attendance</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Tabs defaultValue="video_reports" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="video_reports" className="flex items-center gap-2">
-                <Film size={16} /> Video Reports
-            </TabsTrigger>
-            <TabsTrigger value="attendance_reports" className="flex items-center gap-2">
-                <UserCheck size={16} /> Attendance Reports
-            </TabsTrigger>
+      {/* Search Bar */}
+      <Card className="border-0 shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Input
+                placeholder="Search reports by exam type or course name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12 text-base"
+              />
+            </div>
+            <Button variant="outline" className="h-12">
+              <Filter className="mr-2" size={18} />
+              Filter
+            </Button>
+            <Button variant="outline" className="h-12">
+              <Download className="mr-2" size={18} />
+              Export
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs Section */}
+      <Tabs defaultValue="video_reports" className="space-y-6">
+        <TabsList className="bg-white p-1 rounded-xl shadow-md border-0 grid grid-cols-2">
+          <TabsTrigger 
+            value="video_reports" 
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white"
+          >
+            <Film size={16} className="mr-2" /> 
+            Video Analysis ({filteredVideoReports.length})
+          </TabsTrigger>
+          <TabsTrigger 
+            value="attendance_reports"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white"
+          >
+            <UserCheck size={16} className="mr-2" /> 
+            Attendance ({filteredAttendanceReports.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="video_reports">
-            <VideoReportsList
-                reports={filteredVideoReports}
-                isLoading={isLoading}
-                handleViewReport={handleViewVideoReport}
-            />
+          <VideoReportsList
+            reports={filteredVideoReports}
+            isLoading={isLoading}
+            handleViewReport={handleViewVideoReport}
+          />
         </TabsContent>
 
         <TabsContent value="attendance_reports">
-            <AttendanceReportsList
-                reports={filteredAttendanceReports}
-                isLoading={isLoading}
-                handleViewReport={handleViewAttendanceReport} // Passed handler
-            />
+          <AttendanceReportsList
+            reports={filteredAttendanceReports}
+            isLoading={isLoading}
+            handleViewReport={handleViewAttendanceReport}
+          />
         </TabsContent>
       </Tabs>
 
-
-      {/* Video Report Detail Dialog */}
       <VideoReportDetailDialog
         selectedReport={selectedVideoReport}
         setReportDialog={setVideoDialog}
         reportDialog={videoDialog}
       />
       
-      {/* Attendance Report Detail Dialog (NEW) */}
       <AttendanceReportDetailDialog
         selectedReport={selectedAttendanceReport}
         setReportDialog={setAttendanceDialog}
@@ -235,10 +339,6 @@ export default function ReportManagement() {
     </div>
   );
 }
-
-// =================================================================
-// VIDEO REPORTS LIST COMPONENT
-// =================================================================
 
 interface VideoReportsListProps {
   reports: VideoReport[];
@@ -249,74 +349,89 @@ interface VideoReportsListProps {
 const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading, handleViewReport }) => {
     if (isLoading) {
         return (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            <p className="ml-4 text-gray-500">Loading video reports...</p>
-          </div>
+          <Card className="border-0 shadow-lg">
+            <CardContent className="flex flex-col justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mb-4"></div>
+              <p className="text-gray-600 text-lg font-medium">Loading video reports...</p>
+            </CardContent>
+          </Card>
         );
       }
     
       if (reports.length === 0) {
         return (
-          <div className="text-center p-10 border rounded-xl shadow-sm bg-white">
-            <Film className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Video Reports Found</h3>
-            <p className="text-gray-500">
-                Looks like no video analysis has been completed yet or none match your search criteria.
-            </p>
-          </div>
+          <Card className="border-0 shadow-lg">
+            <CardContent className="text-center p-16">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Film className="h-12 w-12 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 text-gray-900">No Video Reports Found</h3>
+              <p className="text-gray-600 text-lg">
+                No video analysis has been completed yet or none match your search.
+              </p>
+            </CardContent>
+          </Card>
         );
       }
     
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {reports.map((report) => (
             <Card
               key={report._id}
-              className={`hover:shadow-lg transition-shadow border-t-4 ${
-                report.status === "processed"
-                  ? "border-green-500"
-                  : report.status === "error"
-                  ? "border-red-500"
-                  : "border-yellow-500"
-              }`}
+              className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
             >
+              <div className={`h-2 ${
+                report.status === "processed" ? "bg-gradient-to-r from-green-500 to-emerald-500" :
+                report.status === "error" ? "bg-gradient-to-r from-red-500 to-rose-500" :
+                "bg-gradient-to-r from-yellow-500 to-orange-500"
+              }`}></div>
               <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl font-bold truncate pr-4">{report.examType}</CardTitle>
-                  <Badge variant={report.status === 'processed' ? 'default' : report.status === 'error' ? 'destructive' : 'secondary'}>
+                <div className="flex justify-between items-start mb-2">
+                  <CardTitle className="text-xl font-bold text-gray-900">{report.examType}</CardTitle>
+                  <Badge className={`${
+                    report.status === 'processed' ? 'bg-green-500' :
+                    report.status === 'error' ? 'bg-red-500' :
+                    'bg-yellow-500'
+                  } text-white border-0`}>
                     {report.status.toUpperCase()}
                   </Badge>
                 </div>
-                <CardDescription className="text-sm flex items-center gap-1 text-gray-600 pt-1">
-                    <BookOpen size={14} /> {report.courseName}
+                <CardDescription className="text-sm flex items-center gap-2 text-gray-600">
+                  <BookOpen size={14} /> {report.courseName}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <DetailItem 
-                    label="Violations Detected" 
-                    value={report.proctoringViolationsCount} 
-                    icon={<AlertCircle size={16} className="text-red-500" />}
-                />
-                <DetailItem 
-                    label="Duration" 
-                    value={`${(report.totalDuration_s / 60).toFixed(1)} minutes`} 
-                    icon={<Clock size={16} className="text-blue-500" />}
-                />
-                <DetailItem 
-                    label="Date Created" 
-                    value={format(new Date(report.createdAt), 'MMM d, yyyy - h:mm a')} 
-                    icon={<Calendar size={16} className="text-gray-500" />}
-                />
-                <div className="pt-3">
-                    <Button 
-                        onClick={() => handleViewReport(report)} 
-                        className="w-full"
-                        disabled={report.status !== 'processed'}
-                    >
-                        View Details
-                    </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertCircle size={16} className="text-red-600" />
+                      <span className="text-xs font-medium text-gray-600">Violations</span>
+                    </div>
+                    <div className="text-2xl font-bold text-red-700">{report.proctoringViolationsCount}</div>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={16} className="text-blue-600" />
+                      <span className="text-xs font-medium text-gray-600">Duration</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">{(report.totalDuration_s / 60).toFixed(0)}m</div>
+                  </div>
                 </div>
+                
+                <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                  <Calendar size={14} />
+                  {format(new Date(report.createdAt), 'MMM d, yyyy - h:mm a')}
+                </div>
+                
+                <Button 
+                  onClick={() => handleViewReport(report)} 
+                  className="w-full h-10 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                  disabled={report.status !== 'processed'}
+                >
+                  <Eye className="mr-2" size={16} />
+                  View Full Report
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -324,95 +439,110 @@ const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading,
       );
 }
 
-// =================================================================
-// ATTENDANCE REPORTS LIST COMPONENT
-// =================================================================
-
 interface AttendanceReportsListProps {
     reports: AttendanceReport[];
     isLoading: boolean;
-    handleViewReport: (report: AttendanceReport) => void; // Added handler
+    handleViewReport: (report: AttendanceReport) => void;
 }
 
 const AttendanceReportsList: React.FC<AttendanceReportsListProps> = ({ reports, isLoading, handleViewReport }) => {
     if (isLoading) {
         return (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-purple-500"></div>
-            <p className="ml-4 text-gray-500">Loading attendance reports...</p>
-          </div>
+          <Card className="border-0 shadow-lg">
+            <CardContent className="flex flex-col justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500 mb-4"></div>
+              <p className="text-gray-600 text-lg font-medium">Loading attendance reports...</p>
+            </CardContent>
+          </Card>
         );
       }
     
       if (reports.length === 0) {
         return (
-          <div className="text-center p-10 border rounded-xl shadow-sm bg-white">
-            <UserCheck className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Attendance Reports Found</h3>
-            <p className="text-gray-500">
-                No attendance reports have been generated yet or none match your search criteria.
-            </p>
-          </div>
+          <Card className="border-0 shadow-lg">
+            <CardContent className="text-center p-16">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <UserCheck className="h-12 w-12 text-purple-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 text-gray-900">No Attendance Reports Found</h3>
+              <p className="text-gray-600 text-lg">
+                No attendance reports have been generated yet or none match your search.
+              </p>
+            </CardContent>
+          </Card>
         );
       }
 
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          {reports.map((report) => (
-            <Card
-              key={report._id}
-              className="hover:shadow-lg transition-shadow border-t-4 border-purple-500"
-            >
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl font-bold truncate pr-4">{report.exam_type}</CardTitle>
-                  <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">
-                    ATTENDANCE
-                  </Badge>
-                </div>
-                <CardDescription className="text-sm flex items-center gap-1 text-gray-600 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {reports.map((report) => {
+            const attendanceRate = report.total_students > 0 
+              ? Math.round((report.present_count / report.total_students) * 100) 
+              : 0;
+            
+            return (
+              <Card
+                key={report._id}
+                className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+              >
+                <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <CardTitle className="text-xl font-bold text-gray-900">{report.exam_type}</CardTitle>
+                    <Badge className="bg-purple-500 text-white border-0">
+                      ATTENDANCE
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-sm flex items-center gap-2 text-gray-600">
                     <BookOpen size={14} /> {report.course_name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <DetailItem 
-                    label="Exam Date" 
-                    value={format(new Date(report.attendance_date), 'MMM d, yyyy')} 
-                    icon={<Calendar size={16} className="text-green-600" />}
-                />
-                <DetailItem 
-                    label="Total Registered" 
-                    value={report.total_students} 
-                    icon={<Users size={16} className="text-blue-500" />}
-                />
-                <DetailItem 
-                    label="Present Students" 
-                    value={report.present_count} 
-                    icon={<UserCheck size={16} className="text-purple-600" />}
-                />
-                <DetailItem 
-                    label="Absent Students" 
-                    value={report.absent_count} 
-                    icon={<AlertCircle size={16} className="text-red-500" />}
-                />
-                <div className="pt-3">
-                    <Button 
-                        onClick={() => handleViewReport(report)} // Use handler
-                        className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                        View Details
-                    </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Attendance Rate</span>
+                      <span className="font-bold text-purple-700">{attendanceRate}%</span>
+                    </div>
+                    <Progress value={attendanceRate} className="h-2" />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
+                      <Users size={16} className="text-blue-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-blue-700">{report.total_students}</div>
+                      <div className="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-lg text-center border border-green-200">
+                      <CheckCircle size={16} className="text-green-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-green-700">{report.present_count}</div>
+                      <div className="text-xs text-gray-600">Present</div>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg text-center border border-red-200">
+                      <XCircle size={16} className="text-red-600 mx-auto mb-1" />
+                      <div className="text-lg font-bold text-red-700">{report.absent_count}</div>
+                      <div className="text-xs text-gray-600">Absent</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                    <Calendar size={14} />
+                    {format(new Date(report.attendance_date), 'MMM d, yyyy')}
+                  </div>
+                  
+                  <Button 
+                    onClick={() => handleViewReport(report)}
+                    className="w-full h-10 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  >
+                    <Eye className="mr-2" size={16} />
+                    View Details
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       );
 }
-
-// =================================================================
-// ATTENDANCE REPORT DETAIL DIALOG (NEW)
-// =================================================================
 
 interface AttendanceReportDetailDialogProps {
     selectedReport: AttendanceReport | null;
@@ -423,72 +553,158 @@ interface AttendanceReportDetailDialogProps {
 const AttendanceReportDetailDialog: React.FC<AttendanceReportDetailDialogProps> = ({ selectedReport, setReportDialog, reportDialog }) => {
     if (!selectedReport) return null;
 
-    // Helper to render student lists
+    const attendanceRate = selectedReport.total_students > 0 
+      ? Math.round((selectedReport.present_count / selectedReport.total_students) * 100) 
+      : 0;
+
     const StudentList = ({ students, type }: { students: string[]; type: 'present' | 'absent' }) => (
-        <div className={`p-4 rounded-lg h-full overflow-y-auto ${type === 'present' ? 'bg-green-50' : 'bg-red-50'}`}>
-            <h4 className={`text-lg font-bold mb-3 flex items-center gap-2 ${type === 'present' ? 'text-green-700' : 'text-red-700'}`}>
-                {type === 'present' ? <CheckCircle size={20} /> : <UserX size={20} />}
-                {type === 'present' ? `Present Students (${students.length})` : `Absent Students (${students.length})`}
-            </h4>
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                {students.length > 0 ? (
-                    students.map((studentName, index) => (
-                        <div key={index} className="flex items-center gap-3 p-2 rounded-md bg-white shadow-sm border border-gray-100">
-                            {type === 'present' 
-                                ? <Check size={16} className="text-green-500 flex-shrink-0" /> 
-                                : <UserX size={16} className="text-red-500 flex-shrink-0" />}
-                            <span className="text-sm font-medium text-gray-800 truncate">{studentName || 'N/A (No Name)'}</span>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-500 italic">No students listed as {type}.</p>
-                )}
+        <div className={`rounded-xl h-full overflow-hidden border-2 ${
+          type === 'present' ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50' : 'border-red-300 bg-gradient-to-br from-red-50 to-rose-50'
+        }`}>
+            <div className={`p-4 ${type === 'present' ? 'bg-green-500' : 'bg-red-500'}`}>
+              <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                  {type === 'present' ? <CheckCircle size={20} /> : <UserX size={20} />}
+                  {type === 'present' ? `Present Students (${students.length})` : `Absent Students (${students.length})`}
+              </h4>
+            </div>
+            <div className="p-4">
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                  {students.length > 0 ? (
+                      students.map((studentName, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-white shadow-sm border hover:shadow-md transition-shadow">
+                              {type === 'present' 
+                                  ? <div className="p-1 bg-green-100 rounded-full"><Check size={14} className="text-green-600" /></div>
+                                  : <div className="p-1 bg-red-100 rounded-full"><UserX size={14} className="text-red-600" /></div>
+                              }
+                              <span className="text-sm font-medium text-gray-800">{studentName || 'N/A'}</span>
+                          </div>
+                      ))
+                  ) : (
+                      <p className="text-sm text-gray-500 italic text-center py-8">No students listed as {type}.</p>
+                  )}
+              </div>
             </div>
         </div>
     );
 
     return (
         <Dialog open={reportDialog} onOpenChange={setReportDialog}>
-            <DialogContent className="sm:max-w-[1000px] h-[90vh] flex flex-col">
-                <DialogHeader className="flex-shrink-0">
-                    <DialogTitle className="flex items-center gap-2 text-purple-600">
-                        <UserCheck size={24} />
-                        Attendance Report: {selectedReport.exam_type}
+            <DialogContent className="sm:max-w-[1100px] max-h-[95vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
+                          <UserCheck size={24} className="text-white" />
+                        </div>
+                        <div>
+                          <div className="text-purple-700">Attendance Report</div>
+                          <div className="text-base font-normal text-gray-600">{selectedReport.exam_type}</div>
+                        </div>
                     </DialogTitle>
                 </DialogHeader>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4 flex-shrink-0">
-                    <Card className="col-span-1">
-                        <CardHeader className="p-3">
-                            <CardTitle className="text-base font-semibold text-gray-700">Exam Details</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 p-3 pt-0">
-                            <DetailItem label="Course" value={selectedReport.course_name} icon={<BookOpen size={16} />} />
-                            <DetailItem label="Date" value={format(new Date(selectedReport.attendance_date), 'MMM d, yyyy')} icon={<Calendar size={16} />} />
-                            <DetailItem label="Duration" value={`${(selectedReport.duration_seconds / 60).toFixed(1)} min`} icon={<Clock size={16} />} />
-                        </CardContent>
+                <div className="space-y-6 py-4">
+                  {/* Stats Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                      <CardContent className="p-4 text-center">
+                        <BookOpen className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Course</div>
+                        <div className="text-base font-bold text-gray-900">{selectedReport.course_name}</div>
+                      </CardContent>
                     </Card>
-                    <Card className="col-span-3 grid grid-cols-3 divide-x">
-                        <DetailStat label="Total Registered" value={selectedReport.total_students} icon={<Users size={20} className="text-blue-500" />} />
-                        <DetailStat label="Present Count" value={selectedReport.present_count} icon={<UserCheck size={20} className="text-green-500" />} />
-                        <DetailStat label="Absent Count" value={selectedReport.absent_count} icon={<UserX size={20} className="text-red-500" />} />
+                    
+                    <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                      <CardContent className="p-4 text-center">
+                        <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Total Students</div>
+                        <div className="text-2xl font-bold text-blue-700">{selectedReport.total_students}</div>
+                      </CardContent>
                     </Card>
-                </div>
-                
-                <Separator className="flex-shrink-0" />
+                    
+                    <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                      <CardContent className="p-4 text-center">
+                        <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Present</div>
+                        <div className="text-2xl font-bold text-green-700">{selectedReport.present_count}</div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50">
+                      <CardContent className="p-4 text-center">
+                        <UserX className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Absent</div>
+                        <div className="text-2xl font-bold text-red-700">{selectedReport.absent_count}</div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden flex-grow pb-4">
-                    <div className="flex flex-col h-full min-h-0">
-                        <StudentList students={selectedReport.present_students || []} type="present" />
-                    </div>
-                    <div className="flex flex-col h-full min-h-0">
-                        <StudentList students={selectedReport.absent_students || []} type="absent" />
-                    </div>
+                  {/* Attendance Rate Progress */}
+                  <Card className="border-2 border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-indigo-600" />
+                          <span className="text-sm font-bold text-gray-700">Overall Attendance Rate</span>
+                        </div>
+                        <span className="text-2xl font-bold text-indigo-700">{attendanceRate}%</span>
+                      </div>
+                      <Progress value={attendanceRate} className="h-3" />
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
+                        <span>{selectedReport.present_count} present</span>
+                        <span>{selectedReport.absent_count} absent</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Additional Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="border-0 shadow-md">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                          <span className="font-medium text-gray-700">Exam Date:</span>
+                          <span className="text-gray-900">{format(new Date(selectedReport.attendance_date), 'MMMM d, yyyy')}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium text-gray-700">Duration:</span>
+                          <span className="text-gray-900">{(selectedReport.duration_seconds / 60).toFixed(1)} minutes</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border-0 shadow-md">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <FileText className="w-4 h-4 text-indigo-600" />
+                          <span className="font-medium text-gray-700">Report ID:</span>
+                          <span className="text-gray-900 font-mono text-xs">{selectedReport._id.substring(0, 12)}...</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Activity className="w-4 h-4 text-green-600" />
+                          <span className="font-medium text-gray-700">Status:</span>
+                          <Badge className="bg-green-500 text-white border-0">Completed</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Separator />
+
+                  {/* Student Lists */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <StudentList students={selectedReport.present_students || []} type="present" />
+                      <StudentList students={selectedReport.absent_students || []} type="absent" />
+                  </div>
                 </div>
 
-                <DialogFooter className="flex-shrink-0">
-                    <Button variant="outline" onClick={() => setReportDialog(false)}>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setReportDialog(false)} className="h-11">
                         Close
+                    </Button>
+                    <Button className="h-11 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                        <Download className="mr-2" size={16} />
+                        Download Report
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -496,29 +712,6 @@ const AttendanceReportDetailDialog: React.FC<AttendanceReportDetailDialogProps> 
     );
 }
 
-// =================================================================
-// UTILITY COMPONENTS
-// =================================================================
-
-const DetailItem = ({ label, value, icon }) => (
-    <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500 uppercase flex items-center gap-1">
-            {icon} {label}
-        </span>
-        <span className="text-sm font-semibold text-gray-900">{value}</span>
-    </div>
-);
-
-const DetailStat = ({ label, value, icon }) => (
-    <div className="p-4 text-center">
-        <div className="flex justify-center mb-2">{icon}</div>
-        <div className="text-3xl font-bold">{value}</div>
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-    </div>
-);
-
-
-// Report Detail Dialog for Video Reports (Renamed to be specific)
 interface VideoReportDetailDialogProps {
     selectedReport: VideoReport | null;
     setReportDialog: (open: boolean) => void;
@@ -530,83 +723,165 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
 
     return (
         <Dialog open={reportDialog} onOpenChange={setReportDialog}>
-            <DialogContent className="sm:max-w-[800px]">
+            <DialogContent className="sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Film size={24} className="text-blue-600" />
-                        Video Analysis Report: {selectedReport.examType}
+                    <DialogTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg">
+                          <Film size={24} className="text-white" />
+                        </div>
+                        <div>
+                          <div className="text-blue-700">Video Analysis Report</div>
+                          <div className="text-base font-normal text-gray-600">{selectedReport.examType}</div>
+                        </div>
                     </DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                    <div className="space-y-4">
-                        <DetailItem label="Course Name" value={selectedReport.courseName} icon={<BookOpen size={16} />} />
-                        <DetailItem 
-                            label="Status" 
-                            value={selectedReport.status.toUpperCase()} 
-                            icon={selectedReport.status === 'processed' ? <CheckCircle size={16} className="text-green-500" /> : <AlertCircle size={16} className="text-red-500" />} 
-                        />
-                        <DetailItem 
-                            label="Total Duration" 
-                            value={`${(selectedReport.totalDuration_s / 60).toFixed(1)} minutes`} 
-                            icon={<Clock size={16} />}
-                        />
-                        <DetailItem 
-                            label="Report ID" 
-                            value={selectedReport._id} 
-                            icon={<FileText size={16} />}
-                        />
-                        <DetailItem 
-                            label="Violations" 
-                            value={selectedReport.proctoringViolationsCount} 
-                            icon={<AlertCircle size={16} className="text-red-500" />}
-                        />
-                        <DetailItem 
-                            label="Risk Score" 
-                            value={selectedReport.riskScore ? selectedReport.riskScore.toFixed(2) : 'N/A'} 
-                            icon={<MonitorPlay size={16} />}
-                        />
-                        <DetailItem 
-                            label="Created At" 
-                            value={format(new Date(selectedReport.createdAt), 'MMM d, yyyy, h:mm a')} 
-                            icon={<Calendar size={16} />}
-                        />
-                    </div>
-                    <div className="space-y-4">
-                        <span className="font-medium block mb-1 text-lg text-gray-800">Video Information</span>
-                        <div className="border p-4 rounded-lg bg-gray-50">
-                            <span className="font-medium block mb-1 text-sm text-gray-700">Original Video Title:</span>
-                            <p className="text-base font-mono text-gray-900 break-words">{selectedReport.videoTitle}</p>
+                
+                <div className="space-y-6 py-4">
+                  {/* Status Banner */}
+                  <Card className={`border-2 ${
+                    selectedReport.status === 'processed' 
+                      ? 'border-green-300 bg-gradient-to-r from-green-50 to-emerald-50' 
+                      : 'border-red-300 bg-gradient-to-r from-red-50 to-rose-50'
+                  }`}>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {selectedReport.status === 'processed' ? (
+                          <CheckCircle className="w-8 h-8 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-8 h-8 text-red-600" />
+                        )}
+                        <div>
+                          <div className="font-bold text-lg text-gray-900">
+                            {selectedReport.status === 'processed' ? 'Successfully Processed' : 'Processing Error'}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {selectedReport.status === 'processed' 
+                              ? 'Video analysis completed and report generated' 
+                              : 'An error occurred during video processing'
+                            }
+                          </div>
                         </div>
-                        
-                        {selectedReport.status === 'processed' && selectedReport.outputUrl && (
-                            <div className="border p-4 rounded-lg bg-green-50">
-                                <span className="font-medium block mb-1 text-sm text-gray-700">Processed Video Link:</span>
-                                <a 
-                                    href={selectedReport.outputUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-blue-600 hover:text-blue-800 hover:underline block truncate text-sm"
-                                    title={selectedReport.outputUrl}
-                                >
-                                    {selectedReport.outputUrl}
-                                </a>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Note: The processed video file (`{selectedReport.videoTitle}`) is served directly from the server's `processed_videos` folder.
-                                </p>
+                      </div>
+                      <Badge className={`${
+                        selectedReport.status === 'processed' ? 'bg-green-500' : 'bg-red-500'
+                      } text-white border-0 text-sm px-4 py-2`}>
+                        {selectedReport.status.toUpperCase()}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50">
+                      <CardContent className="p-6 text-center">
+                        <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-3" />
+                        <div className="text-sm text-gray-600 mb-1">Violations Detected</div>
+                        <div className="text-4xl font-bold text-red-700">{selectedReport.proctoringViolationsCount}</div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                      <CardContent className="p-6 text-center">
+                        <Clock className="w-12 h-12 text-blue-600 mx-auto mb-3" />
+                        <div className="text-sm text-gray-600 mb-1">Total Duration</div>
+                        <div className="text-4xl font-bold text-blue-700">{(selectedReport.totalDuration_s / 60).toFixed(1)}</div>
+                        <div className="text-xs text-gray-500 mt-1">minutes</div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+                      <CardContent className="p-6 text-center">
+                        <Activity className="w-12 h-12 text-orange-600 mx-auto mb-3" />
+                        <div className="text-sm text-gray-600 mb-1">Risk Score</div>
+                        <div className="text-4xl font-bold text-orange-700">
+                          {selectedReport.riskScore ? selectedReport.riskScore.toFixed(1) : 'N/A'}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Exam Information */}
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <BookOpen className="w-5 h-5 text-indigo-600" />
+                        Exam Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <BookOpen className="w-5 h-5 text-indigo-600 mt-0.5" />
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">Course Name</div>
+                            <div className="text-sm font-semibold text-gray-900">{selectedReport.courseName}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <FileText className="w-5 h-5 text-purple-600 mt-0.5" />
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">Report ID</div>
+                            <div className="text-sm font-mono text-gray-900">{selectedReport._id}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <Calendar className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">Created At</div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              {format(new Date(selectedReport.createdAt), 'MMMM d, yyyy, h:mm a')}
                             </div>
-                        )}
-                        
-                        {selectedReport.status === 'error' && (
-                            <div className="p-4 rounded-lg bg-red-100 text-red-800 flex items-center gap-2">
-                                <AlertCircle size={20} />
-                                <span className="font-medium">Error in Processing.</span>
-                            </div>
-                        )}
-                    </div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <Film className="w-5 h-5 text-blue-600 mt-0.5" />
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">Video Title</div>
+                            <div className="text-sm font-semibold text-gray-900 break-words">{selectedReport.videoTitle}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Processed Video Link */}
+                  {selectedReport.status === 'processed' && selectedReport.outputUrl && (
+                    <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-green-500 rounded-lg">
+                            <CheckCircle className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-lg text-gray-900 mb-2">Processed Video Available</div>
+                            <a 
+                              href={selectedReport.outputUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold text-sm hover:underline"
+                            >
+                              <Eye size={16} />
+                              View Processed Video
+                            </a>
+                            <p className="text-xs text-gray-600 mt-2">
+                              The processed video with proctoring overlays is available for viewing
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
+
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setReportDialog(false)}>
+                    <Button variant="outline" onClick={() => setReportDialog(false)} className="h-11">
                         Close
+                    </Button>
+                    <Button className="h-11 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
+                        <Download className="mr-2" size={16} />
+                        Download Report
                     </Button>
                 </DialogFooter>
             </DialogContent>

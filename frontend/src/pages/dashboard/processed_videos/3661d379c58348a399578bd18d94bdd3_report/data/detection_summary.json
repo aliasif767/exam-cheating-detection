@@ -1,0 +1,34 @@
+{
+    "processing_info": {
+        "total_frames": 623,
+        "video_path": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\uploads\\3661d379c58348a399578bd18d94bdd3_input.mp4",
+        "output_directory": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\processed_videos\\3661d379c58348a399578bd18d94bdd3_report",
+        "output_video_path": "C:\\Users\\HP\\Downloads\\ai-vision-exam-project\\ai-vision-exam\\frontend\\src\\pages\\dashboard\\processed_videos\\3661d379c58348a399578bd18d94bdd3_report\\detection_video.mp4",
+        "processing_date": "2025-10-29T16:18:15.753936",
+        "average_processing_time": 0.2072,
+        "total_processing_time": 129.07
+    },
+    "detection_results": {
+        "total_stable_persons_created": 3,
+        "person_summary": [
+            {
+                "stable_id": 1,
+                "first_seen_frame": 0,
+                "last_seen_frame": 622,
+                "phone_proximity_incidents_count": "Requires frame data aggregation"
+            },
+            {
+                "stable_id": 2,
+                "first_seen_frame": 0,
+                "last_seen_frame": 622,
+                "phone_proximity_incidents_count": "Requires frame data aggregation"
+            },
+            {
+                "stable_id": 3,
+                "first_seen_frame": 278,
+                "last_seen_frame": 622,
+                "phone_proximity_incidents_count": "Requires frame data aggregation"
+            }
+        ]
+    }
+}
