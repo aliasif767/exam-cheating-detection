@@ -68,10 +68,10 @@ const navigation: NavItem[] = [
     roles: ["admin"],
   },
   {
-    name: "Reports",
+    name: "Exam Reports",
     href: "/reports",
     icon: FileText,
-    roles: ["admin", "invigilator"],
+    roles: ["admin", "invigilator","student"],
   },
   
 ];
