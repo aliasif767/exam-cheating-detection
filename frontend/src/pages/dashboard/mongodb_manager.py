@@ -83,6 +83,12 @@ class VideoAnalysisSchema:
     def create_report_document(data, summary, input_filename, output_filename, output_url):
         current_time = datetime.utcnow()
         
+        # --- FIX ---
+        # Read the violation count from the new nested path
+        cheating_results = summary.get('cheating_detection_results', {})
+        violations_count = cheating_results.get('total_violations_reported', 0)
+        # -----------
+        
         return {
             "examType": data.get('examType', 'N/A').strip(),
             "courseName": data.get('courseName', 'N/A').strip(),
@@ -93,7 +99,7 @@ class VideoAnalysisSchema:
             "createdAt": current_time,
             "updatedAt": current_time,
             "status": "Completed",
-            "proctoringViolationsCount": summary.get('violations_logged', 0),
+            "proctoringViolationsCount": violations_count, # Use the new variable here
             "totalDuration_s": summary.get('total_duration_s', 0.0),
         }
 

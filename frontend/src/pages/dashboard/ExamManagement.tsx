@@ -461,10 +461,7 @@ export default function ExamManagement() {
               <Filter className="mr-2" size={18} />
               Filter
             </Button>
-            <Button variant="outline" className="h-12">
-              <Download className="mr-2" size={18} />
-              Export
-            </Button>
+           
           </div>
         </CardContent>
       </Card>

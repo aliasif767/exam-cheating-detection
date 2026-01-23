@@ -50,13 +50,32 @@ interface VideoReport {
   _id: string;
   examType: string;
   courseName: string;
-  status: 'processing' | 'processed' | 'error';
+  status: 'processing' | 'Completed' | 'error';
   createdAt: string;
-  videoTitle: string;
+  inputFilename: string;
+  outputFilename: string;
   proctoringViolationsCount: number;
   totalDuration_s: number;
   riskScore?: number;
   outputUrl?: string;
+  
+  // --- NEW: Define the detailed summary structure ---
+  processingSummary?: {
+    cheating_detection_results?: {
+      total_stable_persons_created?: number;
+      total_violations_reported?: number;
+      total_movement_incidents?: number;
+      total_phone_incidents?: number;
+      persons_with_movement_incident?: number;
+      persons_with_phone_incident?: number;
+    };
+    cheating_summary?: Array<{
+      stable_id: number;
+      frames_tracked: number;
+      last_seen_frame: number;
+      // ... other per-person details
+    }>;
+  };
 }
 
 interface AttendanceReport {
@@ -161,7 +180,7 @@ export default function ReportManagement() {
 
   // Calculate stats
   const totalViolations = videoReports.reduce((sum, r) => sum + r.proctoringViolationsCount, 0);
-  const processedReports = videoReports.filter(r => r.status === 'processed').length;
+  const processedReports = videoReports.filter(r => r.status === 'Completed').length;
   const totalPresent = attendanceReports.reduce((sum, r) => sum + r.present_count, 0);
   const totalAbsent = attendanceReports.reduce((sum, r) => sum + r.absent_count, 0);
 
@@ -281,10 +300,7 @@ export default function ReportManagement() {
               <Filter className="mr-2" size={18} />
               Filter
             </Button>
-            <Button variant="outline" className="h-12">
-              <Download className="mr-2" size={18} />
-              Export
-            </Button>
+           
           </div>
         </CardContent>
       </Card>
@@ -382,7 +398,7 @@ const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading,
               className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
             >
               <div className={`h-2 ${
-                report.status === "processed" ? "bg-gradient-to-r from-green-500 to-emerald-500" :
+                report.status === "Completed" ? "bg-gradient-to-r from-green-500 to-emerald-500" :
                 report.status === "error" ? "bg-gradient-to-r from-red-500 to-rose-500" :
                 "bg-gradient-to-r from-yellow-500 to-orange-500"
               }`}></div>
@@ -390,7 +406,7 @@ const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading,
                 <div className="flex justify-between items-start mb-2">
                   <CardTitle className="text-xl font-bold text-gray-900">{report.examType}</CardTitle>
                   <Badge className={`${
-                    report.status === 'processed' ? 'bg-green-500' :
+                    report.status === 'Completed' ? 'bg-green-500' :
                     report.status === 'error' ? 'bg-red-500' :
                     'bg-yellow-500'
                   } text-white border-0`}>
@@ -415,7 +431,9 @@ const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading,
                       <Clock size={16} className="text-blue-600" />
                       <span className="text-xs font-medium text-gray-600">Duration</span>
                     </div>
-                    <div className="text-2xl font-bold text-blue-700">{(report.totalDuration_s / 60).toFixed(0)}m</div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {Math.floor(report.totalDuration_s / 60)}m
+                    </div>
                   </div>
                 </div>
                 
@@ -427,10 +445,9 @@ const VideoReportsList: React.FC<VideoReportsListProps> = ({ reports, isLoading,
                 <Button 
                   onClick={() => handleViewReport(report)} 
                   className="w-full h-10 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
-                  disabled={report.status !== 'processed'}
                 >
                   <Eye className="mr-2" size={16} />
-                  View Full Report
+                  View Report
                 </Button>
               </CardContent>
             </Card>
@@ -665,11 +682,7 @@ const AttendanceReportDetailDialog: React.FC<AttendanceReportDetailDialogProps> 
                           <span className="font-medium text-gray-700">Exam Date:</span>
                           <span className="text-gray-900">{format(new Date(selectedReport.attendance_date), 'MMMM d, yyyy')}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="w-4 h-4 text-blue-600" />
-                          <span className="font-medium text-gray-700">Duration:</span>
-                          <span className="text-gray-900">{(selectedReport.duration_seconds / 60).toFixed(1)} minutes</span>
-                        </div>
+                        
                       </CardContent>
                     </Card>
                     
@@ -702,10 +715,7 @@ const AttendanceReportDetailDialog: React.FC<AttendanceReportDetailDialogProps> 
                     <Button variant="outline" onClick={() => setReportDialog(false)} className="h-11">
                         Close
                     </Button>
-                    <Button className="h-11 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-                        <Download className="mr-2" size={16} />
-                        Download Report
-                    </Button>
+                    
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -721,9 +731,36 @@ interface VideoReportDetailDialogProps {
 const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selectedReport, setReportDialog, reportDialog }) => {
     if (!selectedReport) return null;
 
+    const formatDuration = (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}m ${secs}s`;
+    };
+
+    const handleDownloadVideo = async () => {
+      if (!selectedReport.outputUrl) return;
+      
+      try {
+        const response = await fetch(selectedReport.outputUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedReport.examType}_${selectedReport.courseName}_processed.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (error) {
+        console.error('Download failed:', error);
+        // Fallback to opening in new tab if download fails
+        window.open(selectedReport.outputUrl, '_blank');
+      }
+    };
+
     return (
         <Dialog open={reportDialog} onOpenChange={setReportDialog}>
-            <DialogContent className="sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[1000px] max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-3 text-2xl">
                         <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg">
@@ -739,23 +776,23 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
                 <div className="space-y-6 py-4">
                   {/* Status Banner */}
                   <Card className={`border-2 ${
-                    selectedReport.status === 'processed' 
+                    selectedReport.status === 'Completed' 
                       ? 'border-green-300 bg-gradient-to-r from-green-50 to-emerald-50' 
                       : 'border-red-300 bg-gradient-to-r from-red-50 to-rose-50'
                   }`}>
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {selectedReport.status === 'processed' ? (
+                        {selectedReport.status === 'Completed' ? (
                           <CheckCircle className="w-8 h-8 text-green-600" />
                         ) : (
                           <AlertCircle className="w-8 h-8 text-red-600" />
                         )}
                         <div>
                           <div className="font-bold text-lg text-gray-900">
-                            {selectedReport.status === 'processed' ? 'Successfully Processed' : 'Processing Error'}
+                            {selectedReport.status === 'Completed' ? 'Successfully Processed' : 'Processing Error'}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {selectedReport.status === 'processed' 
+                            {selectedReport.status === 'Completed' 
                               ? 'Video analysis completed and report generated' 
                               : 'An error occurred during video processing'
                             }
@@ -763,7 +800,7 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
                         </div>
                       </div>
                       <Badge className={`${
-                        selectedReport.status === 'processed' ? 'bg-green-500' : 'bg-red-500'
+                        selectedReport.status === 'Completed' ? 'bg-green-500' : 'bg-red-500'
                       } text-white border-0 text-sm px-4 py-2`}>
                         {selectedReport.status.toUpperCase()}
                       </Badge>
@@ -771,33 +808,38 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
                   </Card>
 
                   {/* Key Metrics */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Card className="border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50">
-                      <CardContent className="p-6 text-center">
-                        <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-3" />
-                        <div className="text-sm text-gray-600 mb-1">Violations Detected</div>
-                        <div className="text-4xl font-bold text-red-700">{selectedReport.proctoringViolationsCount}</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
-                      <CardContent className="p-6 text-center">
-                        <Clock className="w-12 h-12 text-blue-600 mx-auto mb-3" />
-                        <div className="text-sm text-gray-600 mb-1">Total Duration</div>
-                        <div className="text-4xl font-bold text-blue-700">{(selectedReport.totalDuration_s / 60).toFixed(1)}</div>
-                        <div className="text-xs text-gray-500 mt-1">minutes</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
-                      <CardContent className="p-6 text-center">
-                        <Activity className="w-12 h-12 text-orange-600 mx-auto mb-3" />
-                        <div className="text-sm text-gray-600 mb-1">Risk Score</div>
-                        <div className="text-4xl font-bold text-orange-700">
-                          {selectedReport.riskScore ? selectedReport.riskScore.toFixed(1) : 'N/A'}
+                      <CardContent className="p-5 text-center">
+                        <AlertCircle className="w-10 h-10 text-red-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Total Violations</div>
+                        <div className="text-3xl font-bold text-red-700">
+                          {selectedReport.processingSummary?.cheating_detection_results?.total_violations_reported ?? selectedReport.proctoringViolationsCount}
                         </div>
                       </CardContent>
                     </Card>
+
+                    <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+                      <CardContent className="p-5 text-center">
+                        <Activity className="w-10 h-10 text-orange-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Movement Incidents</div>
+                        <div className="text-3xl font-bold text-orange-700">
+                          {selectedReport.processingSummary?.cheating_detection_results?.total_movement_incidents ?? 'N/A'}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                      <CardContent className="p-5 text-center">
+                        <MonitorPlay className="w-10 h-10 text-purple-600 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600 mb-1">Phone Incidents</div>
+                        <div className="text-3xl font-bold text-purple-700">
+                           {selectedReport.processingSummary?.cheating_detection_results?.total_phone_incidents ?? 'N/A'}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    
                   </div>
 
                   {/* Exam Information */}
@@ -811,24 +853,31 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-3">
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 font-medium">Exam Type</div>
+                            <div className="text-sm font-semibold text-gray-900">{selectedReport.examType}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                           <BookOpen className="w-5 h-5 text-indigo-600 mt-0.5" />
-                          <div>
+                          <div className="flex-1">
                             <div className="text-xs text-gray-500 font-medium">Course Name</div>
                             <div className="text-sm font-semibold text-gray-900">{selectedReport.courseName}</div>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                          <FileText className="w-5 h-5 text-purple-600 mt-0.5" />
-                          <div>
-                            <div className="text-xs text-gray-500 font-medium">Report ID</div>
-                            <div className="text-sm font-mono text-gray-900">{selectedReport._id}</div>
+                          <Film className="w-5 h-5 text-blue-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 font-medium">Input File</div>
+                            <div className="text-sm font-semibold text-gray-900 break-words">{selectedReport.inputFilename}</div>
                           </div>
                         </div>
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                           <Calendar className="w-5 h-5 text-green-600 mt-0.5" />
-                          <div>
+                          <div className="flex-1">
                             <div className="text-xs text-gray-500 font-medium">Created At</div>
                             <div className="text-sm font-semibold text-gray-900">
                               {format(new Date(selectedReport.createdAt), 'MMMM d, yyyy, h:mm a')}
@@ -836,53 +885,140 @@ const VideoReportDetailDialog: React.FC<VideoReportDetailDialogProps> = ({ selec
                           </div>
                         </div>
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                          <Film className="w-5 h-5 text-blue-600 mt-0.5" />
-                          <div>
-                            <div className="text-xs text-gray-500 font-medium">Video Title</div>
-                            <div className="text-sm font-semibold text-gray-900 break-words">{selectedReport.videoTitle}</div>
+                          <FileText className="w-5 h-5 text-purple-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 font-medium">Report ID</div>
+                            <div className="text-xs font-mono text-gray-900 break-all">{selectedReport._id}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <Activity className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 font-medium">Processing Status</div>
+                            <Badge className={`${
+                              selectedReport.status === 'Completed' ? 'bg-green-500' : 'bg-red-500'
+                            } text-white border-0 mt-1`}>
+                              {selectedReport.status.toUpperCase()}
+                            </Badge>
                           </div>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Processed Video Link */}
-                  {selectedReport.status === 'processed' && selectedReport.outputUrl && (
+                  {/* Processed Video Download/View */}
+                  {selectedReport.status === 'Completed' && selectedReport.outputUrl && (
                     <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
                           <div className="p-3 bg-green-500 rounded-lg">
-                            <CheckCircle className="w-6 h-6 text-white" />
+                            <Download className="w-6 h-6 text-white" />
                           </div>
                           <div className="flex-1">
                             <div className="font-bold text-lg text-gray-900 mb-2">Processed Video Available</div>
-                            <a 
-                              href={selectedReport.outputUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold text-sm hover:underline"
-                            >
-                              <Eye size={16} />
-                              View Processed Video
-                            </a>
-                            <p className="text-xs text-gray-600 mt-2">
-                              The processed video with proctoring overlays is available for viewing
+                            <p className="text-sm text-gray-600 mb-4">
+                              The processed video with proctoring overlays and violation markers is ready to view or download
                             </p>
+                            <div className="flex gap-3">
+                              <a 
+                                href={selectedReport.outputUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                              >
+                                <Eye size={16} />
+                                View Video
+                              </a>
+                              
+                              {/* ===== FIX APPLIED HERE ===== */}
+                              <button 
+                                onClick={handleDownloadVideo}
+                                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                              >
+                                <Download size={16} />
+                                Download Video
+                              </button>
+                              
+                            </div>
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Violation Summary */}
+                  {(selectedReport.proctoringViolationsCount > 0 || selectedReport.processingSummary?.cheating_detection_results?.total_violations_reported ?? 0 > 0) && (
+                    <Card className="border-2 border-red-200 bg-gradient-to-r from-red-50 to-rose-50">
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2 text-red-700">
+                          <AlertCircle className="w-5 h-5" />
+                          Violation Summary
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                            <span className="text-sm font-medium text-gray-700">Total Violations Reported</span>
+                            <Badge className="bg-red-600 text-white text-base px-3 py-1">
+                              {selectedReport.processingSummary?.cheating_detection_results?.total_violations_reported ?? selectedReport.proctoringViolationsCount}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                              <span className="text-sm font-medium text-gray-700">Movement Incidents</span>
+                              <Badge variant="outline" className="text-orange-700 border-orange-300 bg-orange-50">
+                                {selectedReport.processingSummary?.cheating_detection_results?.total_movement_incidents ?? 0}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                              <span className="text-sm font-medium text-gray-700">Phone Incidents</span>
+                              <Badge variant="outline" className="text-purple-700 border-purple-300 bg-purple-50">
+                                {selectedReport.processingSummary?.cheating_detection_results?.total_phone_incidents ?? 0}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs text-gray-600 mt-2">
+                            Review the processed video to see detailed timestamps and types of violations detected during the exam.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                  }
+                  {/* --- NEW AUDIO TRANSCRIPTION SECTION --- */}
+                  {selectedReport.processingSummary?.cheating_detection_results?.audio_transcription && (
+                    <Card className="mt-4 border-orange-200">
+                      <CardHeader className="pb-2 bg-orange-50">
+                        <CardTitle className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                          <Wifi className="w-4 h-4" /> {/* You can import Mic icon instead if preferred */}
+                          Audio Transcription Log
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 max-h-48 overflow-y-auto">
+                        <div className="space-y-2">
+                          {selectedReport.processingSummary.cheating_detection_results.audio_transcription.length > 0 ? (
+                            selectedReport.processingSummary.cheating_detection_results.audio_transcription.map((line: string, index: number) => (
+                              <p key={index} className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-100">
+                                <span className="font-mono text-gray-400 mr-2">[{index + 1}]</span>
+                                {line}
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">No speech detected in this session.</p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   )}
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={() => setReportDialog(false)} className="h-11">
                         Close
                     </Button>
-                    <Button className="h-11 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
-                        <Download className="mr-2" size={16} />
-                        Download Report
-                    </Button>
+                   
                 </DialogFooter>
             </DialogContent>
         </Dialog>
