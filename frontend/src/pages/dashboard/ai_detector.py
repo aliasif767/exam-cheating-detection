@@ -8,23 +8,40 @@ import mediapipe as mp
 from datetime import datetime
 import glob
 import sys
+import torch
+import contextlib
 
-# --- Class containing the core detection logic ---
-# Renamed from EnhancedFaceTracker to satisfy the import 'PersonFacePhoneDetector'
+# --- AUDIO IMPORTS ---
+import speech_recognition as sr
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+
+# Safe Import for MoviePy (Handles v1.x and v2.x)
+try:
+    from moviepy.editor import VideoFileClip
+except ImportError:
+    from moviepy import VideoFileClip
+
+# --- UTILS TO SUPPRESS NOISE ---
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    """A context manager that redirects stdout and stderr to devnull"""
+    with open(os.devnull, 'w') as fnull:
+        with contextlib.redirect_stdout(fnull), contextlib.redirect_stderr(fnull):
+            yield
+
 class PersonFacePhoneDetector:
-    def __init__(self, yolo_model="yolov8l.pt", confidence_threshold=0.40):
-        """
-        Initialize the enhanced face tracker with multiple AI models.
-        The system is configured for person tracking with YOLO and
-        face landmark-based movement analysis with MediaPipe for cheating detection.
-        """
-        # Initialize YOLO for person and phone detection
-        self.person_model = YOLO(yolo_model)
+    def __init__(self, yolo_model="yolo11n.pt", confidence_threshold=0.35):
+        # Hardware acceleration check
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"🚀 Initializing on device: {self.device}")
+
+        # Initialize YOLO
+        self.model = YOLO(yolo_model).to(self.device)
         self.conf_threshold = confidence_threshold
         
-        # Initialize MediaPipe Face Mesh for detailed face landmarks
+        # Initialize MediaPipe Face Mesh
         self.mp_face_mesh = mp.solutions.face_mesh
-        self.mp_drawing = mp.solutions.drawing_utils
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=5,
@@ -33,9 +50,28 @@ class PersonFacePhoneDetector:
             min_tracking_confidence=0.3
         )
         
-        # Internal state for tracking and analysis
-        self.initial_face_sums = {}
-        self.face_history = {}
+        # Parameters (these don't change)
+        self.params = {
+            'imgsz': 1088,                
+            'phone_class_id': 67,         
+            'person_class_id': 0,         
+            'horizontal_threshold_multiplier': 10.0,
+            'vertical_threshold_multiplier': 13.0,
+            'consecutive_suspicious_frames': 10,
+            'cheating_reset_frames': 30,
+            'min_movement_for_detection': 40,
+            'movement_window_frames': 30,
+            'recalibration_enabled': True,
+            'recalibration_frames': 90
+        }
+        self.debug_mode = True
+        
+        # Initialize state
+        self._reset_state()
+
+    def _reset_state(self):
+        """Reset all tracking and detection state for new video processing"""
+        # Tracking State
         self.person_registry = {}
         self.stable_id_counter = 1
         self.missing_persons = {}
@@ -43,19 +79,14 @@ class PersonFacePhoneDetector:
         self.position_similarity_threshold = 300
         self.size_similarity_threshold = 0.8
         self.yolo_to_stable_mapping = {}
-        self.cheating_detection = {}
         
-        # CHEATING DETECTION PARAMETERS
-        self.movement_thresholds = {
-            'horizontal_threshold_multiplier': 4.8,
-            'vertical_threshold_multiplier': 3.0,
-            'consecutive_suspicious_frames': 5,
-            'cheating_reset_frames': 30
-        }
-        self.debug_mode = True
+        # Movement Analysis State
+        self.initial_face_sums = {}
+        self.face_history = {}
+        self.movement_history = {}
+        self.cheating_detection = {}
 
-    # --- Utility Methods (Copied from Integrated Verification Logic) ---
-
+    # --- Geometry Utilities ---
     def calculate_box_center(self, box):
         x1, y1, x2, y2 = box
         return ((x1 + x2) / 2, (y1 + y2) / 2)
@@ -67,19 +98,23 @@ class PersonFacePhoneDetector:
     def calculate_distance(self, point1, point2):
         return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
-    def check_for_phone_proximity(self, person_box, phone_detections):
+    def check_phone_proximity(self, person_box, phone_boxes):
         p_x1, p_y1, p_x2, p_y2 = person_box
         p_center = self.calculate_box_center(person_box)
-        proximity_threshold = (p_y2 - p_y1) * 0.4 
+        proximity_threshold = (p_y2 - p_y1) * 0.6 
         
-        for phone_box in phone_detections:
-            ph_center = self.calculate_box_center(phone_box)
+        for ph_box in phone_boxes:
+            ph_center = self.calculate_box_center(ph_box)
             distance = self.calculate_distance(p_center, ph_center)
-            if distance < proximity_threshold:
+            is_inside = (ph_center[0] > p_x1 and ph_center[0] < p_x2 and 
+                         ph_center[1] > p_y1 and ph_center[1] < p_y2)
+            
+            if distance < proximity_threshold or is_inside:
                 return True
         return False
 
-    def find_best_stable_match(self, yolo_id, box, landmark_sum):
+    # --- Tracking Logic ---
+    def find_best_stable_match(self, yolo_id, box):
         current_center = self.calculate_box_center(box)
         current_area = self.calculate_box_area(box)
         
@@ -92,8 +127,6 @@ class PersonFacePhoneDetector:
                 if distance < self.position_similarity_threshold:
                     return stable_id
                 else:
-                    if self.debug_mode:
-                        print(f"  → Invalid YOLO mapping removed: YOLO {yolo_id} -> Stable {stable_id} (distance: {distance:.1f})")
                     del self.yolo_to_stable_mapping[yolo_id]
         
         best_match = None
@@ -101,42 +134,19 @@ class PersonFacePhoneDetector:
         
         for stable_id, missing_info in list(self.missing_persons.items()):
             last_box = missing_info['last_box']
-            last_center = self.calculate_box_center(last_box)
-            last_area = self.calculate_box_area(last_box)
-            position_distance = self.calculate_distance(current_center, last_center)
-            size_ratio = abs(current_area - last_area) / max(current_area, last_area, 1)
-            score = position_distance + (size_ratio * 50)
+            dist = self.calculate_distance(current_center, self.calculate_box_center(last_box))
+            size_ratio = abs(current_area - self.calculate_box_area(last_box)) / max(current_area, 1)
             
-            if (position_distance < self.position_similarity_threshold * 2 and
-                size_ratio < self.size_similarity_threshold and
-                score < best_score):
-                best_score = score
-                best_match = stable_id
-        
-        if best_match is not None:
-            return best_match
-        
-        for stable_id, person_info in list(self.person_registry.items()):
-            if stable_id not in self.missing_persons:
-                current_yolo_id = person_info.get('current_yolo_id')
-                if current_yolo_id != yolo_id:
-                    last_box = person_info['last_box']
-                    last_center = self.calculate_box_center(last_box)
-                    last_area = self.calculate_box_area(last_box)
-                    position_distance = self.calculate_distance(current_center, last_center)
-                    size_ratio = abs(current_area - last_area) / max(current_area, last_area, 1)
-                    score = position_distance + (size_ratio * 100)
-                    
-                    if (position_distance < self.position_similarity_threshold and
-                        size_ratio < self.size_similarity_threshold and
-                        score < best_score):
-                        best_score = score
-                        best_match = stable_id
+            if dist < self.position_similarity_threshold * 2 and size_ratio < self.size_similarity_threshold:
+                score = dist + (size_ratio * 100)
+                if score < best_score:
+                    best_score = score
+                    best_match = stable_id
         
         return best_match
 
-    def update_person_registry(self, yolo_id, box, landmark_sum, frame_count):
-        stable_id = self.find_best_stable_match(yolo_id, box, landmark_sum)
+    def update_registry(self, yolo_id, box, landmark_sum, frame_count):
+        stable_id = self.find_best_stable_match(yolo_id, box)
         
         if stable_id is not None:
             if stable_id in self.missing_persons:
@@ -145,411 +155,339 @@ class PersonFacePhoneDetector:
             self.person_registry[stable_id].update({
                 'current_yolo_id': yolo_id,
                 'last_box': box,
-                'last_landmark_sum': landmark_sum,
                 'last_seen_frame': frame_count
             })
             self.yolo_to_stable_mapping[yolo_id] = stable_id
-            
         else:
             stable_id = self.stable_id_counter
             self.stable_id_counter += 1
-            
             self.person_registry[stable_id] = {
                 'current_yolo_id': yolo_id,
                 'last_box': box,
-                'last_landmark_sum': landmark_sum,
-                'last_seen_frame': frame_count,
-                'first_seen_frame': frame_count
+                'first_seen_frame': frame_count,
+                'last_seen_frame': frame_count
             }
             self.yolo_to_stable_mapping[yolo_id] = stable_id
             
-            if landmark_sum is not None:
+            if landmark_sum:
                 self.initial_face_sums[stable_id] = landmark_sum
-                self.face_history[stable_id] = []
             
+            self.face_history[stable_id] = []
+            self.movement_history[stable_id] = []
             self.cheating_detection[stable_id] = {
                 'suspicious_frames': 0,
                 'is_cheating': False,
                 'cheating_incidents': [],
-                'last_reset_frame': frame_count
+                'last_reset_frame': frame_count,
+                'phone_detected_count': 0
             }
-        
+            
         return stable_id
 
-    def handle_missing_persons(self, detected_yolo_ids, frame_count):
-        registry_snapshot = dict(self.person_registry)
-        missing_snapshot = dict(self.missing_persons)
-        currently_active_stable_ids = set()
-        for stable_id, person_info in registry_snapshot.items():
-            if person_info['current_yolo_id'] in detected_yolo_ids:
-                currently_active_stable_ids.add(stable_id)
+    # --- Face Logic ---
+    def get_face_landmarks(self, image, person_box):
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        x1, y1, x2, y2 = map(int, person_box)
+        h = y2 - y1
+        head_y2 = min(y2, y1 + int(h * 0.40)) 
+        roi = rgb[y1:head_y2, x1:x2]
         
-        persons_to_remove = []
+        if roi.size == 0: return None, None
         
-        for stable_id, person_info in registry_snapshot.items():
-            if stable_id not in currently_active_stable_ids:
-                if stable_id not in missing_snapshot:
-                    self.missing_persons[stable_id] = {
-                        'missing_since_frame': frame_count,
-                        'last_box': person_info['last_box'],
-                        'last_landmark_sum': person_info.get('last_landmark_sum')
-                    }
-                else:
-                    missing_duration = frame_count - missing_snapshot[stable_id]['missing_since_frame']
-                    if missing_duration > self.max_missing_frames:
-                        persons_to_remove.append(stable_id)
-        
-        for stable_id in persons_to_remove:
-            if stable_id in self.missing_persons:
-                del self.missing_persons[stable_id]
-            if stable_id in self.person_registry:
-                yolo_id = self.person_registry[stable_id].get('current_yolo_id')
-                if yolo_id is not None and yolo_id in self.yolo_to_stable_mapping:
-                    del self.yolo_to_stable_mapping[yolo_id]
-                del self.person_registry[stable_id]
-            if stable_id in self.initial_face_sums:
-                del self.initial_face_sums[stable_id]
-            if stable_id in self.face_history:
-                del self.face_history[stable_id]
-            if stable_id in self.cheating_detection:
-                del self.cheating_detection[stable_id]
-
-    def cleanup_invalid_yolo_mappings(self, detected_yolo_ids):
-        invalid_mappings = []
-        for yolo_id in list(self.yolo_to_stable_mapping.keys()):
-            if yolo_id not in detected_yolo_ids:
-                invalid_mappings.append(yolo_id)
-        
-        for yolo_id in invalid_mappings:
-            del self.yolo_to_stable_mapping[yolo_id]
-
-    def get_face_landmarks_and_sum(self, image, person_roi):
-        landmarks_data = []
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        x1, y1, x2, y2 = person_roi
-        roi_image = rgb_image[y1:y2, x1:x2]
-        results = self.face_mesh.process(roi_image)
-        
+        results = self.face_mesh.process(roi)
         if results.multi_face_landmarks:
-            h, w = roi_image.shape[:2]
-            for face_landmarks in results.multi_face_landmarks:
-                sum_x, sum_y, all_landmarks = 0, 0, []
-                for landmark in face_landmarks.landmark:
-                    abs_x = int(landmark.x * w) + x1
-                    abs_y = int(landmark.y * h) + y1
-                    sum_x += abs_x
-                    sum_y += abs_y
-                    all_landmarks.append((abs_x, abs_y))
-                
-                landmarks_data.append({
-                    'landmark_sum': (sum_x, sum_y),
-                    'raw_landmarks': all_landmarks,
-                })
-        return landmarks_data
+            landmarks = results.multi_face_landmarks[0]
+            roi_h, roi_w = roi.shape[:2]
+            sum_x, sum_y = 0, 0
+            x_coords = []
+            for lm in landmarks.landmark:
+                abs_x = int(lm.x * roi_w) + x1
+                abs_y = int(lm.y * roi_h) + y1
+                sum_x += abs_x
+                sum_y += abs_y
+                x_coords.append(abs_x)
+            face_width = max(x_coords) - min(x_coords) if x_coords else 0
+            return (sum_x, sum_y), face_width
+        return None, None
 
-    def smooth_position(self, stable_id, current_sum, frame_num):
-        if stable_id not in self.face_history:
-            self.face_history[stable_id] = []
-        self.face_history[stable_id].append({'position': current_sum, 'frame': frame_num})
-        self.face_history[stable_id] = self.face_history[stable_id][-5:]
-        
-        if len(self.face_history[stable_id]) == 1:
-            return current_sum
-        
-        total_weight, weighted_x, weighted_y = 0, 0, 0
-        
-        for i, entry in enumerate(self.face_history[stable_id]):
-            weight = i + 1
-            weighted_x += entry['position'][0] * weight
-            weighted_y += entry['position'][1] * weight
-            total_weight += weight
-        
-        smoothed_x = int(weighted_x / total_weight)
-        smoothed_y = int(weighted_y / total_weight)
-        return (smoothed_x, smoothed_y)
-
-    def calculate_enhanced_movement(self, stable_id, current_sum, face_width_pixels):
+    def analyze_movement(self, stable_id, current_sum, face_width, frame_count):
         if stable_id not in self.initial_face_sums:
-            return {
-                'horizontal_difference': 0, 'vertical_difference': 0, 'horizontal_direction': "none", 
-                'vertical_direction': "none", 'is_suspicious_horizontal': False, 'is_suspicious_vertical': False,
-                'is_cheating_detected': False
-            }
-        
-        initial_sum = self.initial_face_sums[stable_id]
-        horizontal_difference = abs(current_sum[0] - initial_sum[0])
-        vertical_difference = abs(current_sum[1] - initial_sum[1])
-        horizontal_direction = "right" if current_sum[0] > initial_sum[0] else ("left" if current_sum[0] < initial_sum[0] else "none")
-        vertical_direction = "down" if current_sum[1] > initial_sum[1] else ("up" if current_sum[1] < initial_sum[1] else "none")
+            self.initial_face_sums[stable_id] = current_sum
+            return False, {}
 
-        horizontal_threshold = face_width_pixels * self.movement_thresholds['horizontal_threshold_multiplier'] * 100
-        vertical_threshold = face_width_pixels * self.movement_thresholds['vertical_threshold_multiplier'] * 80
+        initial = self.initial_face_sums[stable_id]
+        diff_h = abs(current_sum[0] - initial[0])
+        diff_v = abs(current_sum[1] - initial[1])
         
-        is_suspicious_horizontal = horizontal_difference > horizontal_threshold
-        is_suspicious_vertical = vertical_difference > vertical_threshold
-        is_suspicious = is_suspicious_horizontal or is_suspicious_vertical
+        thresh_h = face_width * self.params['horizontal_threshold_multiplier'] * 100
+        thresh_v = face_width * self.params['vertical_threshold_multiplier'] * 80
+        min_move = self.params['min_movement_for_detection']
         
-        cheating_info = self.cheating_detection.get(stable_id, {'suspicious_frames': 0, 'is_cheating': False, 'cheating_incidents': [], 'last_reset_frame': 0})
+        is_suspicious = (diff_h > thresh_h and diff_h > min_move) or \
+                        (diff_v > thresh_v and diff_v > min_move)
+        
+        cheating_info = self.cheating_detection[stable_id]
         
         if is_suspicious:
             cheating_info['suspicious_frames'] += 1
         else:
-            cheating_info['suspicious_frames'] = max(0, cheating_info['suspicious_frames'] - 1)
-        
-        if (cheating_info['suspicious_frames'] >= self.movement_thresholds['consecutive_suspicious_frames'] 
-            and not cheating_info['is_cheating']):
-            cheating_info['is_cheating'] = True
-            cheating_info['cheating_incidents'].append({
-                'detected_at_frame': len(self.face_history.get(stable_id, [])),
-                'horizontal_movement': horizontal_difference,
-                'vertical_movement': vertical_difference,
-                'directions': f"{horizontal_direction}-{vertical_direction}"
-            })
-            if self.debug_mode:
-                print(f"🚨 CHEATING DETECTED for Person {stable_id} (Movement)")
-        
-        current_frame = len(self.face_history.get(stable_id, []))
-        if (cheating_info['is_cheating'] and 
-            cheating_info['suspicious_frames'] == 0 and 
-            current_frame - cheating_info['last_reset_frame'] > self.movement_thresholds['cheating_reset_frames']):
-            cheating_info['is_cheating'] = False
-            cheating_info['last_reset_frame'] = current_frame
-            if self.debug_mode:
-                print(f"✅ Person {stable_id} cheating status reset")
-        
-        self.cheating_detection[stable_id] = cheating_info
-        
-        return {
-            'horizontal_difference': horizontal_difference, 'vertical_difference': vertical_difference,
-            'horizontal_direction': horizontal_direction, 'vertical_direction': vertical_direction,
-            'is_suspicious_horizontal': is_suspicious_horizontal, 'is_suspicious_vertical': is_suspicious_vertical,
-            'is_cheating_detected': cheating_info['is_cheating'],
-            'suspicious_frame_count': cheating_info['suspicious_frames'],
-            'total_cheating_incidents': len(cheating_info['cheating_incidents'])
+            cheating_info['suspicious_frames'] = max(0, cheating_info['suspicious_frames'] - 0.5)
+            
+        is_cheating_movement = False
+        if cheating_info['suspicious_frames'] >= self.params['consecutive_suspicious_frames']:
+            is_cheating_movement = True
+            
+        return is_cheating_movement, {
+            'diff_h': diff_h, 'diff_v': diff_v, 
+            'suspicious': is_suspicious
         }
 
-    def create_video_from_frames(self, frames_dir, output_video_path, fps):
-        print(f"\nCreating video from frames in '{frames_dir}'...")
-        image_files = sorted(glob.glob(os.path.join(frames_dir, "*.jpg")))
-        if not image_files: return
+    # --- UPDATED AUDIO PROCESSING (SILENT & ROBUST) ---
+    def process_audio(self, video_path, output_dir):
+        """Extracts audio and transcribes it, suppressing console noise."""
+        print(f"\n🎤 Processing Audio (silently)...")
+        audio_filename = "temp_audio.wav"
+        audio_path = os.path.join(output_dir, audio_filename)
+        transcription_lines = []
+        video = None
 
-        first_frame = cv2.imread(image_files[0])
-        height, width, layers = first_frame.shape
+        try:
+            # Use suppress_stdout_stderr to hide MoviePy logs from Server.py
+            with suppress_stdout_stderr():
+                video = VideoFileClip(video_path)
+                
+                if video.audio is None:
+                    return ["No audio detected in video file."]
+                
+                # logger=None suppresses progress bar in MoviePy v2
+                video.audio.write_audiofile(audio_path, codec='pcm_s16le', logger=None)
+                
+                video.close()
+                video = None
 
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
-        video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-        
-        for image_file in image_files:
-            frame = cv2.imread(image_file)
-            video_writer.write(frame)
+            # Transcribe
+            recognizer = sr.Recognizer()
+            audio_segment = AudioSegment.from_wav(audio_path)
             
-        video_writer.release()
-        print(f"Video created successfully at '{output_video_path}'")
+            chunks = split_on_silence(
+                audio_segment,
+                min_silence_len=500,
+                silence_thresh=audio_segment.dBFS - 14,
+                keep_silence=500
+            )
+            
+            for i, chunk in enumerate(chunks):
+                chunk_filename = os.path.join(output_dir, f"chunk_{i}.wav")
+                chunk.export(chunk_filename, format="wav")
+                
+                with sr.AudioFile(chunk_filename) as source:
+                    audio_listened = recognizer.record(source)
+                    try:
+                        text = recognizer.recognize_google(audio_listened)
+                        transcription_lines.append(f"[Chunk {i+1}]: {text}")
+                    except sr.UnknownValueError:
+                        pass 
+                    except sr.RequestError:
+                        pass
+                
+                if os.path.exists(chunk_filename):
+                    os.remove(chunk_filename)
 
-    # --- Renamed Core Processing Method for Frontend Integration ---
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+                
+            if not transcription_lines:
+                return ["No speech detected."]
+                
+            return transcription_lines
 
-    def process_video(self, video_path, output_dir="output_enhanced", fps=30):
-        """
-        Main method to process a video, designed as the integration point.
-        Saves all frame data and returns a comprehensive JSON summary.
-        """
-        if not os.path.exists(video_path):
-            print(f"Error: Video file not found at: {video_path}")
-            # Exit the process gracefully if the video is missing
-            sys.exit(1)
-
-        frames_dir = os.path.join(output_dir, "frames")
-        data_dir = os.path.join(output_dir, "data")
-        os.makedirs(frames_dir, exist_ok=True)
-        os.makedirs(data_dir, exist_ok=True)
+        except Exception as e:
+            # Return error as string instead of crashing
+            return [f"Audio Error: {str(e)}"]
         
+        finally:
+            if video is not None:
+                try: video.close()
+                except: pass
+
+    # --- Main Processing Loop ---
+    def process_video(self, video_path, output_dir="output_final", fps=30):
+        # RESET STATE AT THE START OF EACH VIDEO
+        print("\n🔄 Resetting detector state for new video...")
+        self._reset_state()
+        
+        if not os.path.exists(video_path):
+            print(f"Error: Video {video_path} not found.")
+            return None
+
+        # Setup Output
+        os.makedirs(f"{output_dir}/frames", exist_ok=True)
         cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print("Error: Could not open video file.")
-            sys.exit(1)
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        video_out_path = f"{output_dir}/cheating_detected.mp4"
+        out = cv2.VideoWriter(video_out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
         
         frame_count = 0
-        processing_times = []
-        
-        print("Starting Enhanced Cheating Detection System...")
-        
+        print(f"🎥 Processing video: {video_path}")
+
         while True:
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
             
-            start_time = cv2.getTickCount()
+            # 1. Track
+            results = self.model.track(
+                frame,
+                persist=True,
+                conf=self.conf_threshold,
+                imgsz=self.params['imgsz'],  
+                classes=[0, 67],             
+                verbose=False,
+                device=self.device
+            )
             
-            # Use lower confidence for real-time tracking (faster)
-            results = self.person_model.track(frame, conf=0.4, persist=True, verbose=False)
-            person_data = []
-            detected_yolo_ids = []
-            
-            all_boxes = []
-            all_class_ids = []
-            if results and results[0].boxes:
-                all_boxes = results[0].boxes.xyxy.cpu().tolist()
-                all_class_ids = results[0].boxes.cls.cpu().tolist()
-
             person_detections = []
             phone_boxes = []
             
-            for box, class_id in zip(all_boxes, all_class_ids):
-                class_name = self.person_model.names[int(class_id)]
-                if class_name == 'person' and results[0].boxes.id is not None:
-                    track_ids = results[0].boxes.id.int().cpu().tolist()
-                    try:
-                        index = results[0].boxes.xyxy.cpu().tolist().index(box)
-                        yolo_id = track_ids[index]
-                        person_detections.append({'box': box, 'yolo_id': yolo_id})
-                        detected_yolo_ids.append(yolo_id)
-                    except ValueError:
-                        pass
-                elif class_name == 'cell phone':
-                    phone_boxes.append(box)
+            if results and results[0].boxes:
+                boxes = results[0].boxes.xyxy.cpu().tolist()
+                classes = results[0].boxes.cls.cpu().tolist()
+                track_ids = results[0].boxes.id.int().cpu().tolist() if results[0].boxes.id is not None else [-1] * len(boxes)
+                
+                for box, cls_id, trk_id in zip(boxes, classes, track_ids):
+                    if int(cls_id) == 0 and trk_id != -1:
+                        person_detections.append({'box': box, 'yolo_id': trk_id})
+                    elif int(cls_id) == 67:
+                        phone_boxes.append(box)
 
-            self.cleanup_invalid_yolo_mappings(detected_yolo_ids)
-            temp_detections = []
-            
-            for det in person_detections:
-                box = det['box']
-                yolo_id = det['yolo_id']
+            # 2. Process
+            active_yolo_ids = [p['yolo_id'] for p in person_detections]
+            for yid in list(self.yolo_to_stable_mapping.keys()):
+                if yid not in active_yolo_ids:
+                    del self.yolo_to_stable_mapping[yid]
+
+            for person in person_detections:
+                box = person['box']
+                yolo_id = person['yolo_id']
+                
+                landmark_sum, face_width = self.get_face_landmarks(frame, box)
+                stable_id = self.update_registry(yolo_id, box, landmark_sum, frame_count)
+                
+                has_phone = self.check_phone_proximity(box, phone_boxes)
+                
+                is_cheating_move = False
+                move_data = {}
+                if landmark_sum and face_width:
+                    is_cheating_move, move_data = self.analyze_movement(
+                        stable_id, landmark_sum, face_width, frame_count
+                    )
+                
+                is_cheating = has_phone or is_cheating_move
+                
+                if has_phone:
+                    self.cheating_detection[stable_id]['phone_detected_count'] += 1
+                if is_cheating:
+                    self.cheating_detection[stable_id]['is_cheating'] = True
+                    incident = {'frame': frame_count, 'reason': []}
+                    if has_phone: incident['reason'].append('PHONE_DETECTED')
+                    if is_cheating_move: incident['reason'].append('SUSPICIOUS_MOVEMENT')
+                    self.cheating_detection[stable_id]['cheating_incidents'].append(incident)
+
+                # Draw
                 x1, y1, x2, y2 = map(int, box)
-                person_height = y2 - y1
-                head_height = max(int(person_height * 0.25), 40)
-                head_region = (x1, y1, x2, y1 + head_height)
-                landmarks_list = self.get_face_landmarks_and_sum(frame, head_region)
-                landmark_sum = landmarks_list[0]['landmark_sum'] if landmarks_list else None
-                phone_detected = self.check_for_phone_proximity(box, phone_boxes)
+                color = (0, 0, 255) if is_cheating else (0, 255, 0)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 
-                temp_detections.append({
-                    'yolo_id': yolo_id, 'box': (x1, y1, x2, y2), 'landmark_sum': landmark_sum,
-                    'has_landmarks': bool(landmarks_list), 'landmarks_list': landmarks_list,
-                    'phone_detected': phone_detected
-                })
-            
-            self.handle_missing_persons(detected_yolo_ids, frame_count)
-            
-            for detection in temp_detections:
-                yolo_id = detection['yolo_id']
-                box = detection['box']
-                landmark_sum = detection['landmark_sum']
-                has_landmarks = detection['has_landmarks']
-                landmarks_list = detection['landmarks_list']
-                phone_detected = detection['phone_detected']
-                x1, y1, x2, y2 = box
+                status_text = f"ID:{stable_id} | "
+                if is_cheating:
+                    reasons = []
+                    if has_phone: reasons.append("PHONE")
+                    if is_cheating_move: reasons.append("MVMT")
+                    status_text += f"CHEAT: {'+'.join(reasons)}"
+                else:
+                    status_text += "NORMAL"
                 
-                stable_id = self.update_person_registry(yolo_id, box, landmark_sum, frame_count)
-                
-                if stable_id not in self.initial_face_sums and landmark_sum is not None:
-                    self.initial_face_sums[stable_id] = landmark_sum
+                cv2.putText(frame, status_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                movement_data = {'is_cheating_detected': False, 'horizontal_difference': 0, 'vertical_difference': 0, 
-                                 'horizontal_direction': "none", 'vertical_direction': "none", 
-                                 'is_suspicious_horizontal': False, 'is_suspicious_vertical': False}
-                
-                box_color = (0, 255, 0)  
-                is_cheating_or_phone = False
-                
-                if has_landmarks:
-                    smoothed_sum = self.smooth_position(stable_id, landmark_sum, frame_count)
-                    raw_landmarks = landmarks_list[0]['raw_landmarks']
-                    face_width_in_pixels = max(lm[0] for lm in raw_landmarks) - min(lm[0] for lm in raw_landmarks)
-                    
-                    if stable_id in self.initial_face_sums:
-                        movement_data = self.calculate_enhanced_movement(stable_id, smoothed_sum, face_width_in_pixels)
-
-                if movement_data['is_cheating_detected'] or phone_detected:
-                     is_cheating_or_phone = True
-                     box_color = (0, 0, 255) # Red for cheating or phone
-                
-                # Create person info for JSON output
-                person_info = {
-                    "stable_id": stable_id, "yolo_id": yolo_id, "frame_number": frame_count,
-                    "body_detection": {"bbox": {"x1": x1, "y1": y1, "x2": x2, "y2": y2}},
-                    "enhanced_face_tracking": {
-                        "detected": has_landmarks, "phone_detected": phone_detected,
-                        "horizontal_movement": {"difference": round(movement_data['horizontal_difference'], 2), "direction": movement_data['horizontal_direction'], "is_suspicious": movement_data['is_suspicious_horizontal']},
-                        "vertical_movement": {"difference": round(movement_data['vertical_difference'], 2), "direction": movement_data['vertical_direction'], "is_suspicious": movement_data['is_suspicious_vertical']},
-                        "cheating_detection": {"is_cheating_movement": movement_data['is_cheating_detected'], "is_cheating_overall": is_cheating_or_phone}
-                    }
-                }
-                person_data.append(person_info)
-                
-                # Drawing Logic (for output video)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
-                
-                if is_cheating_or_phone:
-                    cheating_label = "🚨 CHEATING DETECTED! 🚨"
-                    cv2.putText(frame, cheating_label, (x1, y1 - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                
-                status = "CHEATING/PHONE" if is_cheating_or_phone else "NORMAL"
-                label = f"S-ID:{stable_id} Y-ID:{yolo_id} | {status}"
-                cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, box_color, 1)
-
-            # Draw red rectangles for detected phones (object only)
             for ph_box in phone_boxes:
                 px1, py1, px2, py2 = map(int, ph_box)
                 cv2.rectangle(frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
-                cv2.putText(frame, "Phone", (px1, py1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-            
-            else:
-                self.cleanup_invalid_yolo_mappings([])
-                self.handle_missing_persons([], frame_count)
+                cv2.putText(frame, "📱 PHONE", (px1, py1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-            # Save frame and data (The DB/Integration Logic)
-            frame_filename = os.path.join(frames_dir, f"frame_{frame_count:04d}.jpg")
-            cv2.imwrite(frame_filename, frame)
-            if person_data:
-                json_filename = os.path.join(data_dir, f"frame_{frame_count:04d}.json")
-                with open(json_filename, 'w') as f:
-                    json.dump(person_data, f, indent=4)
-            
-            end_time = cv2.getTickCount()
-            processing_times.append((end_time - start_time) / cv2.getTickFrequency())
+            out.write(frame)
             frame_count += 1
-        
-        cap.release()
-        cv2.destroyAllWindows()
-        
-        output_video_path = os.path.join(output_dir, "cheating_detection_video.mp4")
-        self.create_video_from_frames(frames_dir, output_video_path, fps)
+            if frame_count % 30 == 0:
+                print(f"Processed {frame_count} frames...")
 
-        # Generate and return the comprehensive summary for frontend integration
-        total_cheating_incidents = sum(len(info.get('cheating_incidents', [])) for info in self.cheating_detection.values())
-        persons_with_cheating = sum(1 for info in self.cheating_detection.values() if len(info.get('cheating_incidents', [])) > 0)
+        cap.release()
+        out.release()
+        print(f"\n✅ Video Processing Complete.")
         
-        summary = {
-            "processing_info": {
-                "total_frames": frame_count, "video_path": video_path, "output_directory": output_dir, 
-                "output_video_path": output_video_path, "processing_date": datetime.now().isoformat(),
-                "average_processing_time": round(np.mean(processing_times) if processing_times else 0, 4),
-                "total_processing_time": round(sum(processing_times) if processing_times else 0, 2)
-            },
+        # --- AUDIO TRIGGER ---
+        transcription_text = self.process_audio(video_path, output_dir)
+
+        # --- SUMMARY GENERATION (FIXED COUNTING) ---
+        print("📊 Generating structured summary...")
+        
+        # Count unique violations per person (not frame-by-frame)
+        total_movement_violations = 0
+        total_phone_violations = 0
+        persons_with_movement = 0
+        persons_with_phone = 0
+        
+        for stable_id, data in self.cheating_detection.items():
+            # Count if person had ANY movement violations
+            has_movement = any('SUSPICIOUS_MOVEMENT' in inc['reason'] 
+                             for inc in data['cheating_incidents'])
+            if has_movement:
+                persons_with_movement += 1
+                total_movement_violations += 1  # Count as 1 violation per person
+            
+            # Count if person had ANY phone detections
+            if data['phone_detected_count'] > 0:
+                persons_with_phone += 1
+                total_phone_violations += 1  # Count as 1 violation per person
+        
+        # Total unique violations (persons who violated, not frame count)
+        total_violations = total_movement_violations + total_phone_violations
+
+        final_summary = {
             "cheating_detection_results": {
-                "total_stable_persons_created": self.stable_id_counter - 1,
-                "total_movement_incidents": total_cheating_incidents,
-                "persons_with_movement_incident": persons_with_cheating,
-                "cheating_summary": []
+                "total_movement_incidents": total_movement_violations,
+                "total_phone_incidents": total_phone_violations,
+                "total_violations_reported": total_violations,
+                "audio_transcription": transcription_text,
+                "detected_persons": self.cheating_detection,
+                "total_stable_persons_created": len(self.cheating_detection),
+                "persons_with_movement_incident": persons_with_movement,
+                "persons_with_phone_incident": persons_with_phone,
+                "counting_method": "unique_violations_per_person"
             }
         }
+
+        # Ensure path is absolute
+        summary_path = os.path.abspath(os.path.join(output_dir, "summary.json"))
         
-        for stable_id, cheating_info in self.cheating_detection.items():
-            person_info = self.person_registry.get(stable_id, {})
-            person_summary = {
-                "stable_id": stable_id,
-                "frames_tracked": len([h for h in self.face_history.get(stable_id, [])]),
-                "last_seen_frame": person_info.get('last_seen_frame', 'unknown'),
-                "cheating_status_movement_only": {
-                    "currently_cheating": cheating_info.get('is_cheating', False),
-                    "total_incidents": len(cheating_info.get('cheating_incidents', [])),
-                    "incidents_details": cheating_info.get('cheating_incidents', [])
-                }
-            }
-            summary["cheating_detection_results"]["cheating_summary"].append(person_summary)
+        try:
+            with open(summary_path, 'w') as f:
+                json.dump(final_summary, f, indent=4)
+            print(f"   ✓ Summary saved to: {summary_path}")
+            print(f"   ✓ Summary file exists: {os.path.exists(summary_path)}")
+            print(f"   ✓ File size: {os.path.getsize(summary_path)} bytes")
+        except Exception as e:
+            print(f"   ✗ Error saving summary: {e}")
+            import traceback
+            traceback.print_exc()
         
-        summary_filename = os.path.join(data_dir, "cheating_detection_summary.json")
-        with open(summary_filename, 'w') as f:
-            json.dump(summary, f, indent=4)
-        
-        return summary
+        # Don't return the summary - it will be read from disk by server.py
+        return None
+
+if __name__ == "__main__":
+    detector = PersonFacePhoneDetector(yolo_model="yolo11n.pt") 
+    if len(sys.argv) > 1:
+        video_input = sys.argv[1]
+        output_folder = sys.argv[2] if len(sys.argv) > 2 else "output_results"
+        detector.process_video(video_input, output_dir=output_folder)
+    else:
+        print("Please provide a video path.")

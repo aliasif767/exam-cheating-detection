@@ -28,6 +28,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import StudentNotifications from "@/components/StudentNotifications";
 
 interface Exam {
   _id: string;
@@ -83,6 +84,7 @@ export default function StudentDashboard() {
   const [upcomingExamsCount, setUpcomingExamsCount] = useState(0);
   const [completedExamsCount, setCompletedExamsCount] = useState(0);
   const [attendanceReportsCount, setAttendanceReportsCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   // Modals state
   const [showTodayExamsModal, setShowTodayExamsModal] = useState(false);
@@ -101,12 +103,15 @@ export default function StudentDashboard() {
   const [attendanceReports, setAttendanceReports] = useState<AttendanceReport[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+
   useEffect(() => {
     fetchMyExams();
     fetchTodayExamsCount();
     fetchUpcomingExamsCount();
     fetchCompletedExamsCount();
     fetchAttendanceReportsCount();
+    fetchUnreadNotificationsCount();
   }, []);
 
   const fetchMyExams = async () => {
@@ -183,8 +188,10 @@ export default function StudentDashboard() {
     try {
       if (!user?.firstName) return;
       
+      const fullName = user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName;
+      
       const response = await fetch(
-        `http://localhost:5001/api/attendance/student-reports?studentName=${encodeURIComponent(user.firstName)}`
+        `http://localhost:5001/api/attendance/student-reports?studentName=${encodeURIComponent(fullName)}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -192,6 +199,24 @@ export default function StudentDashboard() {
       }
     } catch (error) {
       console.error("Error fetching attendance reports count:", error);
+    }
+  };
+
+  const fetchUnreadNotificationsCount = async () => {
+    try {
+      if (!user?.firstName) return;
+      
+      const fullName = user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName;
+      
+      const response = await fetch(
+        `http://localhost:5001/api/notifications/unread-count/${encodeURIComponent(fullName)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadNotificationsCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching unread notifications count:", error);
     }
   };
 
@@ -257,8 +282,10 @@ export default function StudentDashboard() {
     try {
       if (!user?.firstName) return;
       
+      const fullName = user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName;
+      
       const response = await fetch(
-        `http://localhost:5001/api/attendance/student-reports?studentName=${encodeURIComponent(user.firstName)}`
+        `http://localhost:5001/api/attendance/student-reports?studentName=${encodeURIComponent(fullName)}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -291,6 +318,14 @@ export default function StudentDashboard() {
     fetchAttendanceReportsDetails();
   };
 
+  const handleNotificationsClick = () => {
+    setShowNotificationsModal(true);
+  };
+
+  const handleUnreadCountChange = (count: number) => {
+    setUnreadNotificationsCount(count);
+  };
+
   const ongoingExams = exams.filter((exam) => exam.status === "ongoing");
 
   // Calculate attendance percentage
@@ -308,6 +343,8 @@ export default function StudentDashboard() {
       </DashboardLayout>
     );
   }
+
+  const studentFullName = user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName || "";
 
   return (
     <DashboardLayout title="Student Dashboard">
@@ -327,8 +364,23 @@ export default function StudentDashboard() {
                 </h1>
                 <p className="text-blue-100 text-lg">Ready to excel in your exams today?</p>
               </div>
-              <div className="hidden md:flex items-center justify-center w-24 h-24 bg-white bg-opacity-20 rounded-full backdrop-blur-sm">
-                <GraduationCap className="w-12 h-12 text-white" />
+              <div className="flex gap-3">
+                {/* Notifications Bell */}
+                <button
+                  onClick={handleNotificationsClick}
+                  className="relative flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-full backdrop-blur-sm hover:bg-opacity-30 transition-all"
+                >
+                  <Bell className="w-7 h-7 text-white" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </button>
+                
+                <div className="hidden md:flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-full backdrop-blur-sm">
+                  <GraduationCap className="w-8 h-8 text-white" />
+                </div>
               </div>
             </div>
             
@@ -355,6 +407,22 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Notifications Alert (if any unread) */}
+        {unreadNotificationsCount > 0 && (
+          <Alert className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <AlertDescription className="text-red-900 font-medium">
+              You have {unreadNotificationsCount} unread notification{unreadNotificationsCount > 1 ? 's' : ''}.{' '}
+              <button
+                onClick={handleNotificationsClick}
+                className="underline font-bold hover:text-red-700"
+              >
+                Click here to view
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Quick Stats Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -471,6 +539,20 @@ export default function StudentDashboard() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Button 
+                onClick={handleNotificationsClick}
+                className="w-full justify-between bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 relative"
+              >
+                <span>View Notifications</span>
+                <div className="flex items-center gap-2">
+                  {unreadNotificationsCount > 0 && (
+                    <Badge className="bg-white text-red-600 text-xs px-2">
+                      {unreadNotificationsCount}
+                    </Badge>
+                  )}
+                  <Bell className="w-4 h-4" />
+                </div>
+              </Button>
+              <Button 
                 onClick={handleTodayExamsClick}
                 className="w-full justify-between bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
               >
@@ -543,6 +625,40 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Notifications Modal */}
+        {showNotificationsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="p-2 bg-red-500 rounded-lg">
+                    <Bell className="w-6 h-6 text-white" />
+                  </div>
+                  My Notifications
+                  {unreadNotificationsCount > 0 && (
+                    <Badge className="bg-red-600">
+                      {unreadNotificationsCount} new
+                    </Badge>
+                  )}
+                </h2>
+                <button
+                  onClick={() => setShowNotificationsModal(false)}
+                  className="p-2 hover:bg-white rounded-lg transition-all duration-200"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                <StudentNotifications 
+                  studentName={studentFullName}
+                  onUnreadCountChange={handleUnreadCountChange}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Today's Exams Modal */}
         {showTodayExamsModal && (
@@ -784,12 +900,6 @@ export default function StudentDashboard() {
                           </div>
 
                           <div className="flex items-center gap-3 text-sm text-gray-700 bg-white p-3 rounded-lg">
-                            <Clock className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                            <span className="font-medium">Duration:</span>
-                            <span className="font-semibold text-purple-700">{(report.totalDuration_s / 60).toFixed(1)} min</span>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-sm text-gray-700 bg-white p-3 rounded-lg">
                             <Calendar className="w-5 h-5 text-orange-600 flex-shrink-0" />
                             <span className="font-medium">Completed:</span>
                             <span className="font-semibold text-orange-700">{new Date(report.createdAt).toLocaleDateString()}</span>
@@ -876,12 +986,6 @@ export default function StudentDashboard() {
                             <Calendar className="w-5 h-5 text-blue-600 flex-shrink-0" />
                             <span className="font-medium">Date:</span>
                             <span className="font-semibold text-blue-700">{new Date(attendance.attendance_date).toLocaleDateString()}</span>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-sm text-gray-700 bg-white p-3 rounded-lg shadow-sm">
-                            <Clock className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                            <span className="font-medium">Time:</span>
-                            <span className="font-semibold text-purple-700">{attendance.attendance_time}</span>
                           </div>
 
                           <div className="flex items-center gap-3 text-sm text-gray-700 bg-white p-3 rounded-lg shadow-sm">
