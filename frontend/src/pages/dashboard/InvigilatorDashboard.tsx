@@ -50,18 +50,31 @@ interface CurrentSessionInfo {
   timestamp: string;
 }
 
+// --- UPDATED INTERFACES START ---
+interface UnknownPerson {
+  id: number;
+  time: string;
+  timestamp: string;
+  distance: number;
+  image_base64: string;
+  frame: number;
+}
+
 interface AttendanceReport {
   exam_type: string;
   course_name: string;
   total_students: number;
   present_count: number;
   absent_count: number;
+  unknown_count: number;         // Added field
+  unknown_persons: UnknownPerson[]; // Added field
   present_students: string[];
   absent_students: string[];
   duration_seconds: number;
   total_frames: number;
   recognition_history: any[];
 }
+// --- UPDATED INTERFACES END ---
 
 interface AiReportData {
   examType: string;
@@ -282,9 +295,6 @@ export default function InvigilatorDashboard() {
         {/* Hero Header */}
         <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-700 rounded-2xl shadow-2xl p-8">
           <div className="absolute inset-0 bg-black opacity-5"></div>
-          <div className="absolute -right-20 -top-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
-          <div className="absolute -left-20 -bottom-20 w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
-          
           <div className="relative">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm">
@@ -302,11 +312,10 @@ export default function InvigilatorDashboard() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-lg">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="p-3 bg-blue-500 rounded-xl shadow-lg">
                     <Monitor className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -332,11 +341,10 @@ export default function InvigilatorDashboard() {
             onClick={handleExamsTodayClick}
             className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-lg"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-purple-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="p-3 bg-purple-500 rounded-xl shadow-lg">
                     <BookOpen className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -353,11 +361,10 @@ export default function InvigilatorDashboard() {
           </div>
 
           <div className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-0 bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-lg">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="p-3 bg-green-500 rounded-xl shadow-lg">
                     <CheckCircle className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -675,8 +682,8 @@ export default function InvigilatorDashboard() {
                 </div>
               </div>
 
-              {/* Stats Cards */}
-              <div className="grid grid-cols-3 gap-6">
+              {/* --- UPDATED STATS CARDS (4 COLUMNS) --- */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border-2 border-blue-300 text-center shadow-lg">
                   <Users className="w-10 h-10 text-blue-600 mx-auto mb-3" />
                   <p className="text-4xl font-bold text-blue-700">{attendanceReport.total_students}</p>
@@ -691,6 +698,13 @@ export default function InvigilatorDashboard() {
                   <XCircle className="w-10 h-10 text-red-600 mx-auto mb-3" />
                   <p className="text-4xl font-bold text-red-700">{attendanceReport.absent_count}</p>
                   <p className="text-sm text-gray-600 mt-2 font-semibold">Absent</p>
+                </div>
+                
+                {/* NEW UNKNOWN PERSONS CARD */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-orange-50 to-amber-100 p-6 rounded-xl border-2 border-orange-300 text-center shadow-lg">
+                  <AlertTriangle className="w-10 h-10 text-orange-600 mx-auto mb-3" />
+                  <p className="text-4xl font-bold text-orange-700">{attendanceReport.unknown_count || 0}</p>
+                  <p className="text-sm text-gray-600 mt-2 font-semibold">Unknown/Intruders</p>
                 </div>
               </div>
 
@@ -759,6 +773,60 @@ export default function InvigilatorDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* --- NEW SECTION: UNKNOWN PERSONS DETECTIONS --- */}
+              {attendanceReport.unknown_persons && attendanceReport.unknown_persons.length > 0 && (
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border-2 border-orange-300 overflow-hidden">
+                  <div className="bg-orange-500 p-4">
+                    <h3 className="font-bold text-white flex items-center gap-2 text-lg">
+                      <AlertTriangle className="w-6 h-6" />
+                      Unknown Persons Detected ({attendanceReport.unknown_count})
+                    </h3>
+                  </div>
+                  
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                      {attendanceReport.unknown_persons.map((person, index) => (
+                        <div key={index} className="bg-white rounded-lg shadow-md border border-orange-200 overflow-hidden hover:shadow-xl transition-all">
+                          {/* Image Container */}
+                          <div className="relative aspect-square bg-gray-100 border-b border-orange-100">
+                            {person.image_base64 ? (
+                              <img 
+                                src={`data:image/jpeg;base64,${person.image_base64}`} 
+                                alt={`Unknown Person ${person.id}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-gray-400">
+                                <Users className="w-12 h-12" />
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                              ID: {person.id}
+                            </div>
+                          </div>
+                          
+                          {/* Details */}
+                          <div className="p-3 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Time:</span>
+                              <span className="font-bold text-gray-800">{person.time}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Frame:</span>
+                              <span className="font-mono text-gray-600">{person.frame}</span>
+                            </div>
+                            <div className="w-full bg-orange-100 text-orange-800 text-xs font-semibold px-2 py-1 rounded text-center mt-2">
+                              Match Dist: {person.distance.toFixed(3)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* --- END NEW SECTION --- */}
 
               {/* Processing Details */}
               <div className="bg-gray-50 p-5 rounded-xl border-2 border-gray-200">
